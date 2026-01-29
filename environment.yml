@@ -1,0 +1,13 @@
+name: bielik
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - keyring
+  - pyside6
+  - openai
+  - markdown
+  - pip:
+    - --extra-index-url https://pypi.org/simple
