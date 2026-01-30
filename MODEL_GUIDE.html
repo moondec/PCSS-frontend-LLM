@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.27">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>model_guide</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="MODEL_GUIDE_files/libs/clipboard/clipboard.min.js"></script>
+<script src="MODEL_GUIDE_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="MODEL_GUIDE_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="MODEL_GUIDE_files/libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="MODEL_GUIDE_files/libs/quarto-html/popper.min.js"></script>
+<script src="MODEL_GUIDE_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="MODEL_GUIDE_files/libs/quarto-html/anchor.min.js"></script>
+<link href="MODEL_GUIDE_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="MODEL_GUIDE_files/libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="MODEL_GUIDE_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="MODEL_GUIDE_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="MODEL_GUIDE_files/libs/bootstrap/bootstrap-d6a003b94517c951b2d65075d42fb01b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+
+
+</head>
+
+<body class="fullcontent quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+
+
+
+<section id="pcss-llm-model-guide-przewodnik-po-modelach-pcss" class="level1">
+<h1>PCSS LLM Model Guide / Przewodnik po Modelach PCSS</h1>
+<p>This document provides a summary of models available in the application, categorized by their use cases and strengths. <em>Ten dokument zawiera zestawienie modeli dostępnych w aplikacji, z podziałem na ich zastosowania i mocne strony.</em></p>
+<hr>
+<section id="english-version" class="level2">
+<h2 class="anchored" data-anchor-id="english-version">🇬🇧 English Version</h2>
+<section id="polish-models-specialized" class="level3">
+<h3 class="anchored" data-anchor-id="polish-models-specialized">🇵🇱 Polish Models (Specialized)</h3>
+<p>Best for Polish language, culture, and grammar tasks.</p>
+<ul>
+<li><strong>Bielik-11b (v2)</strong>
+<ul>
+<li><strong>Architecture:</strong> SpeakLeash (based on Solar/Mistral).</li>
+<li><strong>Best for:</strong> Official letters, emails in Polish, summarizing Polish texts, tasks requiring correct inflection.</li>
+<li><strong>Note:</strong> The “default” model for Polish tasks.</li>
+</ul></li>
+<li><strong>Bielik-4.5b</strong>
+<ul>
+<li><strong>Architecture:</strong> Smaller version of Bielik.</li>
+<li><strong>Best for:</strong> Quick responses, simple translations, running on lower-end hardware (if local).</li>
+</ul></li>
+</ul>
+</section>
+<section id="general-purpose-giants" class="level3">
+<h3 class="anchored" data-anchor-id="general-purpose-giants">🧠 General Purpose Giants</h3>
+<p>Powerful models with general knowledge, comparable to GPT-4.</p>
+<ul>
+<li><strong>DeepSeek-V3 / V3.1</strong>
+<ul>
+<li><strong>Strengths:</strong> Logic, mathematics, coding, very long context.</li>
+<li><strong>Best for:</strong> Solving reasoning puzzles, analyzing long documents, writing code.</li>
+</ul></li>
+<li><strong>GPT-4o (OpenAI)</strong>
+<ul>
+<li><strong>Strengths:</strong> Versatility, “intuition”, excellent instruction following.</li>
+<li><strong>Best for:</strong> Everything – from creative writing to data analysis. (Availability depends on API key config).</li>
+</ul></li>
+<li><strong>Llama 3.3 (70B)</strong>
+<ul>
+<li><strong>Maker:</strong> Meta.</li>
+<li><strong>Strengths:</strong> Solid general model, great writing style.</li>
+<li><strong>Best for:</strong> Content generation in English and Polish, brainstorming, general assistance.</li>
+</ul></li>
+<li><strong>Qwen2.5 (72B)</strong>
+<ul>
+<li><strong>Maker:</strong> Alibaba.</li>
+<li><strong>Strengths:</strong> Often tops Open Source leaderboards. Excellent in math and coding.</li>
+<li><strong>Best for:</strong> Complex instructions, STEM tasks.</li>
+</ul></li>
+</ul>
+</section>
+<section id="coding" class="level3">
+<h3 class="anchored" data-anchor-id="coding">💻 Coding</h3>
+<p>Models trained specifically to understand programming languages.</p>
+<ul>
+<li><strong>Qwen3-Coder (30B)</strong>
+<ul>
+<li><strong>Specialization:</strong> Programming.</li>
+<li><strong>Best for:</strong> Writing scripts (Python, JS, C++), debugging, explaining code. Often outperforms general 70B models at code.</li>
+</ul></li>
+<li><strong>Mistral-Small (24B)</strong>
+<ul>
+<li><strong>Strengths:</strong> Speed and efficiency. Great quality-to-speed ratio.</li>
+<li><strong>Best for:</strong> Quick scripts, refactoring, simple technical questions.</li>
+</ul></li>
+</ul>
+</section>
+<section id="medicine-science-specialized" class="level3">
+<h3 class="anchored" data-anchor-id="medicine-science-specialized">⚕️ Medicine &amp; Science (Specialized)</h3>
+<p>Models with specialized domain knowledge.</p>
+<ul>
+<li><strong>Meditron3:70b</strong>
+<ul>
+<li><strong>Specialization:</strong> Medicine.</li>
+<li><strong>Best for:</strong> Answering medical questions, analyzing clinical cases, summarizing medical literature.</li>
+<li><strong>Warning:</strong> For educational/research purposes only, does not replace a doctor.</li>
+</ul></li>
+<li><strong>OpenBioLLM:70b</strong>
+<ul>
+<li><strong>Specialization:</strong> Biology and biomedicine.</li>
+<li><strong>Best for:</strong> Working with scientific publications in biology, genetics, and pharmacy.</li>
+</ul></li>
+</ul>
+</section>
+<section id="tools" class="level3">
+<h3 class="anchored" data-anchor-id="tools">🛠️ Tools</h3>
+<ul>
+<li><strong>Nanonets-OCR-s</strong>
+<ul>
+<li><strong>Type:</strong> OCR (Optical Character Recognition).</li>
+<li><strong>Use:</strong> Not a chatbot. Extracts text from images, scans, and PDF files without a text layer.</li>
+</ul></li>
+<li><strong>gpt-oss_120b / 20b</strong>
+<ul>
+<li><strong>Type:</strong> Experimental/Internal PCSS models.</li>
+<li><strong>Use:</strong> Likely large open-source models (e.g., Falcon or Mixtral) for testing. Worth trying if others fail at specific tasks.</li>
+</ul></li>
+</ul>
+<hr>
+</section>
+</section>
+<section id="wersja-polska" class="level2">
+<h2 class="anchored" data-anchor-id="wersja-polska">🇵🇱 Wersja Polska</h2>
+<section id="modele-polskie-specjalizowane" class="level3">
+<h3 class="anchored" data-anchor-id="modele-polskie-specjalizowane">🇵🇱 Modele Polskie (Specjalizowane)</h3>
+<p>Te modele najlepiej radzą sobie z językiem polskim, naszą kulturą i gramatyką.</p>
+<ul>
+<li><strong>Bielik-11b (v2)</strong>
+<ul>
+<li><strong>Architektura:</strong> SpeakLeash (bazujący na Solar/Mistral).</li>
+<li><strong>Najlepsze do:</strong> Pisania pism urzędowych, e-maili po polsku, streszczania polskich tekstów, zadań wymagających poprawnej odmiany fleksyjnej.</li>
+<li><strong>Uwagi:</strong> Model “domyślny” dla zadań w języku polskim.</li>
+</ul></li>
+<li><strong>Bielik-4.5b</strong>
+<ul>
+<li><strong>Architektura:</strong> Mniejsza wersja Bielika.</li>
+<li><strong>Najlepsze do:</strong> Szybkich odpowiedzi, prostych tłumaczeń, działania na słabszym sprzęcie (gdyby był uruchamiany lokalnie).</li>
+</ul></li>
+</ul>
+</section>
+<section id="wszechstronne-giganty-general-purpose" class="level3">
+<h3 class="anchored" data-anchor-id="wszechstronne-giganty-general-purpose">🧠 Wszechstronne Giganty (General Purpose)</h3>
+<p>Najpotężniejsze modele o ogólnej wiedzy, porównywalne z GPT-4.</p>
+<ul>
+<li><strong>DeepSeek-V3 / V3.1</strong>
+<ul>
+<li><strong>Mocne strony:</strong> Logika, matematyka, programowanie, bardzo długi kontekst.</li>
+<li><strong>Najlepsze do:</strong> Rozwiązywania zagadek logicznych, analizy długich dokumentów, pisania kodu.</li>
+</ul></li>
+<li><strong>GPT-4o (OpenAI)</strong>
+<ul>
+<li><strong>Mocne strony:</strong> Wszechstronność, “intuicja”, świetne podążanie za instrukcjami.</li>
+<li><strong>Najlepsze do:</strong> Wszystkiego – od kreatywnego pisania po analizę danych. (Dostępne zależnie od konfiguracji klucza API).</li>
+</ul></li>
+<li><strong>Llama 3.3 (70B)</strong>
+<ul>
+<li><strong>Producent:</strong> Meta.</li>
+<li><strong>Mocne strony:</strong> Bardzo solidny model ogólny, świetny styl wypowiedzi.</li>
+<li><strong>Najlepsze do:</strong> Generowania treści po angielsku i polsku, burze mózgów, asystent ogólny.</li>
+</ul></li>
+<li><strong>Qwen2.5 (72B)</strong>
+<ul>
+<li><strong>Producent:</strong> Alibaba.</li>
+<li><strong>Mocne strony:</strong> Często wygrywa rankingi Open Source. Świetny w matematyce i kodowaniu.</li>
+<li><strong>Najlepsze do:</strong> Skomplikowanych instrukcji, zadań ścisłych.</li>
+</ul></li>
+</ul>
+</section>
+<section id="programowanie-i-kod-coding" class="level3">
+<h3 class="anchored" data-anchor-id="programowanie-i-kod-coding">💻 Programowanie i Kod (Coding)</h3>
+<p>Modele wytrenowane specjalnie do rozumienia języków programowania.</p>
+<ul>
+<li><strong>Qwen3-Coder (30B)</strong>
+<ul>
+<li><strong>Specjalizacja:</strong> Programowanie.</li>
+<li><strong>Najlepsze do:</strong> Pisania skryptów (Python, JS, C++), debugowania, wyjaśniania kodu. Radzi sobie lepiej z kodem niż ogólne modele 70B.</li>
+</ul></li>
+<li><strong>Mistral-Small (24B)</strong>
+<ul>
+<li><strong>Mocne strony:</strong> Szybkość i efektywność. Bardzo dobry stosunek jakości do prędkości.</li>
+<li><strong>Najlepsze do:</strong> Szybkich skryptów, refaktoryzacji, prostych pytań technicznych.</li>
+</ul></li>
+</ul>
+</section>
+<section id="medycyna-i-nauka-specialized" class="level3">
+<h3 class="anchored" data-anchor-id="medycyna-i-nauka-specialized">⚕️ Medycyna i Nauka (Specialized)</h3>
+<p>Modele posiadające specjalistyczną wiedzę dziedzinową.</p>
+<ul>
+<li><strong>Meditron3:70b</strong>
+<ul>
+<li><strong>Specjalizacja:</strong> Medycyna.</li>
+<li><strong>Najlepsze do:</strong> Odpowiadania na pytania medyczne, analizy przypadków klinicznych, streszczania literatury medycznej.</li>
+<li><strong>Ostrzeżenie:</strong> Służy do celów edukacyjnych/badawczych, nie zastępuje lekarza.</li>
+</ul></li>
+<li><strong>OpenBioLLM:70b</strong>
+<ul>
+<li><strong>Specjalizacja:</strong> Biologia i biomedycyna.</li>
+<li><strong>Najlepsze do:</strong> Pracy z publikacjami naukowymi z zakresu biologii, genetyki i farmacji.</li>
+</ul></li>
+</ul>
+</section>
+<section id="narzędzia" class="level3">
+<h3 class="anchored" data-anchor-id="narzędzia">🛠️ Narzędzia</h3>
+<ul>
+<li><strong>Nanonets-OCR-s</strong>
+<ul>
+<li><strong>Typ:</strong> OCR (Optical Character Recognition).</li>
+<li><strong>Zastosowanie:</strong> To nie jest chatbot. Służy do wyciągania tekstu ze zdjęć, skanów dokumentów i plików PDF, które nie mają warstwy tekstowej.</li>
+</ul></li>
+<li><strong>gpt-oss_120b / 20b</strong>
+<ul>
+<li><strong>Typ:</strong> Modele eksperymentalne/wewnętrzne PCSS.</li>
+<li><strong>Zastosowanie:</strong> Prawdopodobnie duże modele open-source (np. Falcon lub Mixtral) udostępnione testowo. Warto sprawdzić, jeśli inne modele nie dają rady w specyficznych zadaniach.</li>
+</ul></li>
+</ul>
+</section>
+</section>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

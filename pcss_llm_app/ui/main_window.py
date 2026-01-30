@@ -1,9 +1,12 @@
 import sys
-from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
-                             QHBoxLayout, QTabWidget, QPushButton, QLabel, 
-                             QLineEdit, QTextEdit, QComboBox, QFileDialog, 
-                             QMessageBox, QDialog, QFormLayout, QListWidget)
-from PySide6.QtCore import Qt, QThread, Signal, QEvent
+from PySide6.QtCore import Qt, QSize, QTimer, QThread, Signal, QObject, QEvent
+from PySide6.QtGui import QAction, QIcon, QTextCursor
+from PySide6.QtWidgets import (
+    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
+    QTextEdit, QLineEdit, QPushButton, QLabel, 
+    QComboBox, QSplitter, QFrame, QScrollArea, QSizePolicy,
+    QApplication, QTabWidget, QFileDialog, QMessageBox, QDialog, QFormLayout, QListWidget
+)
 import datetime
 import markdown
 import time
@@ -11,16 +14,23 @@ import time
 from pcss_llm_app.config import ConfigManager
 from pcss_llm_app.core.api_client import PcssApiClient
 from pcss_llm_app.core.database import DatabaseManager
+from pcss_llm_app.core.database import DatabaseManager
 from pcss_llm_app.core.file_manager import FileManager
+from pcss_llm_app.core.agent_engine import LangChainAgentEngine
+
+class AgentLogSignal(QObject):
+    log_message = Signal(str)
 
 class SettingsDialog(QDialog):
-    def __init__(self, config_manager, parent=None):
+    def __init__(self, config_manager, parent=None, available_models=None):
         super().__init__(parent)
         self.config = config_manager
+        self.available_models = available_models or []
         self.setWindowTitle("Settings")
         self.setMinimumWidth(400)
         
-        layout = QFormLayout()
+
+        settings_dlg_layout = QFormLayout()
         
         self.api_key_input = QLineEdit()
         self.api_key_input.setEchoMode(QLineEdit.Password)
@@ -28,24 +38,55 @@ class SettingsDialog(QDialog):
         if self.config.get_api_key():
              self.api_key_input.setPlaceholderText("Stored in Keyring")
         
-        layout.addRow("PCSS API Key:", self.api_key_input)
+        settings_dlg_layout.addRow("PCSS API Key:", self.api_key_input)
         
+        # Workspace Path
+        self.workspace_input = QLineEdit(self.config.get_workspace_path())
+        workspace_layout = QHBoxLayout()
+        workspace_layout.addWidget(self.workspace_input)
+        browse_btn = QPushButton("Browse...")
+        browse_btn.clicked.connect(self.browse_workspace)
+        workspace_layout.addWidget(browse_btn)
+        settings_dlg_layout.addRow("Workspace:", workspace_layout)
+
+        # Model Selection
+        self.model_combo = QComboBox()
+        if self.available_models:
+            self.model_combo.addItems(self.available_models)
+        else:
+            self.model_combo.addItems(["gpt-4o", "bielik_11b"]) # Default fallback
+            
+        current_model = self.config.get("model", "gpt-4o")
+        self.model_combo.setCurrentText(current_model)
+        settings_dlg_layout.addRow("Default Model:", self.model_combo)
+
         save_btn = QPushButton("Save")
         save_btn.clicked.connect(self.save_settings)
-        layout.addRow(save_btn)
+        settings_dlg_layout.addRow(save_btn)
         
-        self.setLayout(layout)
+        self.setLayout(settings_dlg_layout)
+
+    def browse_workspace(self):
+        dir_path = QFileDialog.getExistingDirectory(self, "Select Workspace Directory")
+        if dir_path:
+            self.workspace_input.setText(dir_path)
 
     def save_settings(self):
-        key = self.api_key_input.text().strip()
-        if key:
-            if self.config.set_api_key(key):
-                QMessageBox.information(self, "Success", "API Key saved to Keyring.")
-                self.accept()
-            else:
-                QMessageBox.critical(self, "Error", "Failed to save to Keyring.")
-        else:
-             self.accept()
+        api_key = self.api_key_input.text().strip()
+        if api_key:
+            if not self.config.set_api_key(api_key):
+                QMessageBox.critical(self, "Error", "Failed to save API Key to Keyring.")
+                return # Don't proceed if API key save failed
+            
+        workspace_path = self.workspace_input.text().strip()
+        if workspace_path:
+            self.config.set_workspace_path(workspace_path)
+            
+        selected_model = self.model_combo.currentText()
+        if selected_model:
+            self.config.set("model", selected_model)
+            
+        self.accept()
 
 class ChatWorker(QThread):
     finished = Signal(str)
@@ -70,62 +111,24 @@ class ChatWorker(QThread):
 
 class AgentWorker(QThread):
     """
-    Worker to handle Agent interactions: Add Message -> Run -> Poll -> Fetch Response
+    Worker to handle Agent interactions via LangChain Engine
     """
     finished = Signal(str)
     status_update = Signal(str)
     error = Signal(str)
 
-    def __init__(self, api_client, thread_id, assistant_id, content=None):
+    def __init__(self, agent_engine, text, chat_history=None):
         super().__init__()
-        self.api_client = api_client
-        self.thread_id = thread_id
-        self.assistant_id = assistant_id
-        self.content = content
+        self.agent_engine = agent_engine
+        self.text = text
+        self.chat_history = chat_history if chat_history else []
 
     def run(self):
         try:
-            # 1. Add Message if content provided
-            if self.content:
-                self.status_update.emit("Adding message...")
-                self.api_client.add_message_to_thread(self.thread_id, self.content)
-            
-            # 2. Start Run
-            self.status_update.emit("Starting run...")
-            run = self.api_client.run_thread(self.thread_id, self.assistant_id)
-            run_id = run.id
-            
-            # 3. Poll
-            while True:
-                run_status = self.api_client.get_run_status(self.thread_id, run_id)
-                status = run_status.status
-                self.status_update.emit(f"Status: {status}")
-                
-                if status == 'completed':
-                    break
-                elif status in ['failed', 'cancelled', 'expired']:
-                    self.error.emit(f"Run ended with status: {status}")
-                    return
-                
-                time.sleep(1) # Poll interval
-            
-            # 4. Get items
-            self.status_update.emit("Fetching response...")
-            messages = self.api_client.get_thread_messages(self.thread_id)
-            # Assuming the last message is from assistant (returned desc)
-            if messages.data:
-                latest_msg = messages.data[0]
-                if latest_msg.role == "assistant":
-                    # Extract text content
-                    response_text = ""
-                    for content_block in latest_msg.content:
-                        if hasattr(content_block, 'text'):
-                             response_text += content_block.text.value
-                    self.finished.emit(response_text)
-                else:
-                    self.finished.emit("(No new assistant message found)")
-            else:
-                self.finished.emit("(No messages found)")
+            self.status_update.emit("Agent thinking...")
+            # Run the agent (synchronous call in thread)
+            response = self.agent_engine.run(self.text, self.chat_history)
+            self.finished.emit(response)
                 
         except Exception as e:
             self.error.emit(str(e))
@@ -141,11 +144,16 @@ class MainWindow(QMainWindow):
         self.db = DatabaseManager()
         
         self.current_conversation_id = None
+        self.current_conversation_id = None
         self.chat_history = [] 
 
-        # Agent State
-        self.current_assistant_id = None
-        self.current_thread_id = None
+        # Agent Log Signal
+        self.agent_logger = AgentLogSignal()
+        self.agent_logger.log_message.connect(self.append_log)
+
+        # Agent State (LangChain)
+        self.agent_engine = None
+        self.agent_history = []
 
         self._init_ui()
         
@@ -237,7 +245,22 @@ class MainWindow(QMainWindow):
         # Chat Display
         self.chat_display = QTextEdit()
         self.chat_display.setReadOnly(True)
-        layout.addWidget(self.chat_display)
+        
+        # Agent Console
+        self.console_display = QTextEdit()
+        self.console_display.setReadOnly(True)
+        self.console_display.setPlaceholderText("Agent logs will appear here...")
+        self.console_display.setMaximumHeight(200)
+        self.console_display.setStyleSheet("background-color: #2b2b2b; color: #aaaaaa; font-family: monospace;")
+        self.console_display.hide() # Hidden by default until agent mode? Or toggle? Let's show it in agent mode.
+
+        # Splitter for Chat and Console
+        self.content_splitter = QSplitter(Qt.Vertical)
+        self.content_splitter.addWidget(self.chat_display)
+        self.content_splitter.addWidget(self.console_display)
+        self.content_splitter.setSizes([600, 200])
+
+        layout.addWidget(self.content_splitter)
         
         # Input
         input_layout = QHBoxLayout()
@@ -254,7 +277,7 @@ class MainWindow(QMainWindow):
         layout.addLayout(input_layout)
 
     def _init_agent_tab(self):
-        layout = QVBoxLayout(self.agent_tab)
+        agent_layout = QVBoxLayout(self.agent_tab) # Renamed to avoid conflict with 'layout'
         
         # Config Area
         config_layout = QHBoxLayout()
@@ -275,16 +298,25 @@ class MainWindow(QMainWindow):
         create_thread_btn.clicked.connect(self.create_thread)
         config_layout.addWidget(create_thread_btn)
 
-        layout.addLayout(config_layout)
+        agent_layout.addLayout(config_layout)
 
         # Agent Chat Display
         self.agent_display = QTextEdit()
         self.agent_display.setReadOnly(True)
-        layout.addWidget(self.agent_display)
+        agent_layout.addWidget(self.agent_display)
         
-        # Status
-        self.agent_status_label = QLabel("Ready")
-        layout.addWidget(self.agent_status_label)
+        # Status Area
+        status_layout = QHBoxLayout()
+        self.agent_status_label = QLabel("Status: Idle")
+        workspace_path = self.config.get_workspace_path()
+        self.workspace_label = QLabel(f"Workspace: {workspace_path}")
+        self.workspace_label.setStyleSheet("color: gray; font-size: 10px;")
+        
+        status_layout.addWidget(self.agent_status_label)
+        status_layout.addStretch()
+        status_layout.addWidget(self.workspace_label)
+        
+        agent_layout.addLayout(status_layout)
         
         # Input Area
         input_layout = QHBoxLayout()
@@ -298,7 +330,7 @@ class MainWindow(QMainWindow):
         send_btn.clicked.connect(self.send_to_agent)
         input_layout.addWidget(send_btn)
         
-        layout.addLayout(input_layout)
+        agent_layout.addLayout(input_layout)
 
     def _refresh_models(self):
         if self.api.is_configured():
@@ -306,12 +338,15 @@ class MainWindow(QMainWindow):
             self.model_combo.clear()
             if not models:
                 self.model_combo.addItem("gpt-4o") 
-                self.model_combo.addItem("bielik-11b-v2.3-instruct")
+                self.model_combo.addItem("bielik_11b")
             else:
                 self.model_combo.addItems(models)
 
     def open_settings(self):
-        dlg = SettingsDialog(self.config, self)
+        # Get current models from main combo
+        current_models = [self.model_combo.itemText(i) for i in range(self.model_combo.count())]
+        
+        dlg = SettingsDialog(self.config, self, available_models=current_models)
         if dlg.exec():
             self.api = PcssApiClient(self.config)
             self._refresh_models()
@@ -321,6 +356,13 @@ class MainWindow(QMainWindow):
         self.chat_history = []
         self.chat_display.clear()
         self.model_combo.setEnabled(True)
+
+    def append_log(self, message: str):
+        self.console_display.append(message)
+        # Auto scroll
+        cursor = self.console_display.textCursor()
+        cursor.movePosition(QTextCursor.End)
+        self.console_display.setTextCursor(cursor)
 
     def send_message(self):
         text = self.message_input.toPlainText().strip()
@@ -365,40 +407,40 @@ class MainWindow(QMainWindow):
     def create_assistant(self):
         name = self.agent_name_input.text()
         instr = self.agent_instr_input.text()
-        if not name or not instr:
-            QMessageBox.warning(self, "Input", "Name and Instructions required.")
+        # Create/Init Engine
+        api_key = self.config.get_api_key()
+        if not api_key:
+            QMessageBox.warning(self, "Error", "API Key not set.")
             return
-            
+
+        workspace = self.config.get_workspace_path()
+        model = self.model_combo.currentText()
+        
         try:
-            self.agent_status_label.setText("Creating Assistant...")
-            # Use current model combo as the model for assistant
-            model = self.model_combo.currentText()
-            assistant = self.api.create_assistant(name, instr, model)
-            self.current_assistant_id = assistant.id
-            self.agent_status_label.setText(f"Assistant Created: {assistant.id}")
-            self.agent_display.append(f"<b>System:</b> Assistant '{name}' created ({assistant.id})<br>")
+            self.agent_status_label.setText("Initializing Agent...")
+            # We initialize the engine. Note: name/instr are effectively system prompts/config
+            # For this Phase, we just rely on standard prompt + tools, but we could inject instr.
+            self.agent_engine = LangChainAgentEngine(api_key, model, workspace)
+            
+            self.agent_status_label.setText("Agent Ready")
+            self.agent_history = [] # Reset history
+            self.agent_display.append(f"<b>System:</b> Agent '{name}' initialized in workspace: {workspace}<br>")
+            self.agent_display.append(f"<b>System:</b> Agent has tools: [Read, Write, List, Copy, Move, Delete]<br>")
+            
         except Exception as e:
             QMessageBox.critical(self, "Error", str(e))
-            self.agent_status_label.setText("Error creating assistant")
+            self.agent_status_label.setText("Init Error")
 
     def create_thread(self):
-        try:
-            self.agent_status_label.setText("Creating Thread...")
-            thread = self.api.create_thread()
-            self.current_thread_id = thread.id
-            self.agent_status_label.setText(f"Thread: {thread.id}")
-            self.agent_display.clear()
-            self.agent_display.append(f"<b>System:</b> New Thread started ({thread.id})<br>")
-            
-            # Start new agent conversation in DB as well? 
-            # For simplicity, agent chats are just volatile or I could store them if I mapped thread_id to db.
-            # Keeping it simple as per requirements (agent mode functionality).
-        except Exception as e:
-             QMessageBox.critical(self, "Error", str(e))
+        # In LangChain mode, "New Thread" just clears memory
+        self.agent_history = []
+        self.agent_display.clear()
+        self.agent_display.append("<b>System:</b> Memory cleared. New Session.<br>")
+        self.agent_status_label.setText("Ready")
 
     def send_to_agent(self):
-        if not self.current_assistant_id or not self.current_thread_id:
-            QMessageBox.warning(self, "Agent", "Please create Assistant and Thread first.")
+        if not self.agent_engine:
+            QMessageBox.warning(self, "Agent", "Please Initialize Agent first (Create Assistant button).")
             return
 
         text = self.agent_input.toPlainText().strip()
@@ -409,7 +451,15 @@ class MainWindow(QMainWindow):
         self.agent_display.append(f"<b>User:</b> {html}<br>")
         self.agent_input.clear()
         
-        self.agent_worker = AgentWorker(self.api, self.current_thread_id, self.current_assistant_id, text)
+        # Add to history
+        # (LangChain agent handles history internally if passed? My engine run takes history)
+        # We pass self.agent_history? 
+        # Actually my engine implementation takes list of messages.
+        # But AgentExecutor with chat_history handles it.
+        # We need to maintain the list of (human, ai) tuples or BaseMessages.
+        # Let's assume engine.run expects a list.
+        
+        self.agent_worker = AgentWorker(self.agent_engine, text, self.agent_history)
         self.agent_status_label.setText("Processing...")
         self.agent_worker.status_update.connect(self.update_agent_status)
         self.agent_worker.finished.connect(self.handle_agent_response)
@@ -423,6 +473,20 @@ class MainWindow(QMainWindow):
     def handle_agent_response(self, content):
         html = markdown.markdown(content)
         self.agent_display.append(f"<b>Agent:</b> {html}<br>")
+        self.agent_status_label.setText("Ready")
+        self.agent_input.setEnabled(True)
+        self.agent_input.setFocus()
+        
+        # Update history
+        # Since I'm managing history manually to pass to agent, I should append here.
+        # Although AgentExecutor returns output, it doesn't return the updated "chat_history" list automatically unless configured.
+        # I need to append input and output to self.agent_history.
+        # Input was self.agent_worker.text (need to store it or access it)
+        input_text = self.agent_worker.text
+        
+        from langchain_core.messages import HumanMessage, AIMessage
+        self.agent_history.append(HumanMessage(content=input_text))
+        self.agent_history.append(AIMessage(content=content))
         self.agent_status_label.setText("Ready")
         self.agent_input.setEnabled(True)
         self.agent_input.setFocus()

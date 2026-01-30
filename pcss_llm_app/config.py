@@ -63,3 +63,17 @@ class ConfigManager:
     def set(self, key, value):
         self._config[key] = value
         self.save_config()
+
+    def get_workspace_path(self):
+        """
+        Returns workspace path, default to ~/Documents/Bielik_Workspace
+        """
+        default_path = str(Path.home() / "Documents" / "Bielik_Workspace")
+        path = self._config.get("workspace_path", default_path)
+        # Ensure directory exists
+        Path(path).mkdir(parents=True, exist_ok=True)
+        return path
+
+    def set_workspace_path(self, path):
+        self._config["workspace_path"] = str(path)
+        self.save_config()

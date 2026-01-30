@@ -9,5 +9,10 @@ dependencies:
   - pyside6
   - openai
   - markdown
+  - langchain
+  - langchain-openai
+  - langchain-community
+  - pypdf
+  - python-docx
   - pip:
     - --extra-index-url https://pypi.org/simple

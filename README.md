@@ -1,77 +1,78 @@
 # PCSS LLM Client (Bielik)
 
-A Python desktop application (GUI) for interacting with the PCSS LLM Service, built with **PySide6 (Qt)** and **OpenAI SDK**. 
+A Python desktop application (GUI) for interacting with the PCSS LLM Service, built with **PySide6 (Qt)** and **LangChain**.
 
-Features:
-- **Chat Interface**: Standard chat with history saved to local SQLite database.
-- **Agent Mode**: Interface for OpenAI Assistants API (Create Assistants, Threads, Runs).
-- **Secure Configuration**: API tokens are stored securely in the system Keyring (macOS Keychain, etc.), never in plain text.
-- **Model Selection**: Dynamically fetches available models from the API.
+## ✨ Key Features
 
-## 🛠️ Prerequisites
+### 1. 💬 Chat Mode
+-   **Conversation History**: All chats are saved locally to an SQLite database (`conversations.db`).
+-   **Model Selection**: Dynamically fetches models from PCSS (e.g., `bielik-11b-v2.3-instruct`, `gpt-4o`).
+-   **Import/Export**: Save and load specific conversations to JSON files.
+-   **Markdown Support**: Full rendering of headings, code blocks, and lists.
 
-- **Anaconda** or **Miniconda** installed on your system.
-- macOS (recommended for Keyring integration, though libraries are cross-platform).
+### 2. 🤖 Agent Mode (Autonomous)
+The application features a powerful Agent capable of performing tasks on your local file system.
+-   **Workspace Security**: The agent is strictly confined to a specific directory (configurable in settings).
+-   **File Tools**: The agent can autonomously using tools:
+    -   `ListDirectory`: See files.
+    -   `ReadFile`: Read content of files.
+    -   `WriteFile`: Create or overwrite files.
+    -   `Copy/Move/Delete`: Manage files.
+-   **Use Case**: "Read this report.pdf and create a summary.txt" -> Agent does it automatically.
 
-## 🚀 Installation Pipeline
+### 3. 🔒 Security
+-   **Secure Storage**: API Keys are stored in the system Keyring (macOS Keychain, Windows Credential Locker), never in plain text.
+-   **Local Data**: All history and settings are stored locally.
 
-### 1. Clone the Repository
-```bash
-git clone <repository_url>
-cd Bielik
-```
+## 🛠️ Installation
 
-### 2. Prepare the Environment
-We use Conda to manage dependencies. You can create the environment manually or using the provided `environment.yml`.
+### Prerequisites
+-   **Anaconda** or **Miniconda** installed.
+-   Python 3.10+
 
-**Option A: Using environment.yml (Recommended)**
-```bash
-conda env create -f environment.yml
-conda activate bielik
-```
+### Setup Pipeline
 
-**Option B: Manual Setup**
-```bash
-# Create environment with Python 3.10
-conda create -n bielik python=3.10 -y
+1.  **Clone the Repository**
+    ```bash
+    git clone <repository_url>
+    cd Bielik
+    ```
 
-# Activate environment
-conda activate bielik
+2.  **Create Environment**
+    You can use the provided `environment.yml`:
+    ```bash
+    conda env create -f environment.yml
+    conda activate bielik
+    ```
 
-# Install dependencies (using pip inside conda is often smoother for PySide6/OpenAI updates)
-pip install pyside6 openai keyring markdown
-```
+    *Or manually:*
+    ```bash
+    conda create -n bielik python=3.10 -y
+    conda activate bielik
+    pip install pyside6 openai keyring markdown langchain langchain-openai langchain-community pypdf python-docx
+    ```
 
 ## ⚙️ Configuration
 
-The application requires a PCSS Cloud Grant API Key.
+1.  **API Key**: On first launch, enter your PCSS Cloud API Token. It corresponds to your active Grant.
+2.  **Workspace**: In **Settings**, select the directory where the Agent is allowed to work (Default: `~/Documents/Bielik_Workspace`).
 
-1.  Obtain your API Key from [PCSS Cloud](https://pcss.plcloud.pl).
-2.  Run the application.
-3.  On first launch, a **Settings** dialog will appear.
-4.  Paste your API Key and click **Save**.
-    -   *Note: The key is saved securely to your OS Keyring Service. It is NOT stored in any text file in this repository.*
-
-## ▶️ Running the Application
+## ▶️ Usage
 
 ```bash
-# Ensure environment is active
+# Activate environment
 conda activate bielik
 
-# Run the entry point
+# Run
 python pcss_llm_app/main.py
 ```
 
-## 📂 Project Structure
+### Tips
+-   **Chat**: Use `Shift+Enter` for new lines, `Enter` to send.
+-   **Agent**: To initialize a session, go to "Agent Mode" -> "Create Assistant" (this boots the LangChain engine). Then type requests like "Create a python script hello.py in my workspace".
 
-- `pcss_llm_app/`: Main package.
-    - `main.py`: Entry point.
-    - `ui/`: Qt Widgets and Windows.
-    - `core/`: Logic layer.
-        - `api_client.py`: OpenAI SDK wrapper for PCSS.
-        - `database.py`: SQLite handling.
-        - `config.py`: Keyring and settings management.
-- `conversations.db`: Local database (created on first run).
-
-## 📝 License
-[Choose a license, e.g., MIT]
+## 🏗️ Technology Stack
+-   **GUI**: PySide6 (Qt)
+-   **LLM Engine**: LangGraph / LangChain
+-   **API**: OpenAI Compatible (PCSS)
+-   **Database**: SQLite

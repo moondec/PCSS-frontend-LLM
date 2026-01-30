@@ -28,7 +28,14 @@ class PcssApiClient:
             return []
         try:
             models = self.client.models.list()
-            return [m.id for m in models.data]
+            # Filter out non-chat models (whisper, embedding, etc.)
+            chat_models = []
+            for m in models.data:
+                mid = m.id.lower()
+                if "whisper" in mid or "embedding" in mid or "dall" in mid or "tts" in mid:
+                    continue
+                chat_models.append(m.id)
+            return chat_models
         except Exception as e:
             print(f"Error fetching models: {e}")
             return []
