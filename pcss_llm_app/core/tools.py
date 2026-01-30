@@ -1,6 +1,10 @@
 import os
 from typing import Optional
-from langchain_core.tools import tool, StructuredTool
+try:
+    from langchain_core.tools import tool, StructuredTool
+except ImportError:
+    from langchain.tools import tool, StructuredTool
+from pydantic import BaseModel, Field
 from docx import Document
 from pypdf import PdfReader
 from openai import OpenAI
@@ -11,7 +15,17 @@ try:
 except ImportError:
     pypandoc = None
 
-from ddgs import DDGS
+try:
+    from ddgs import DDGS
+except ImportError:
+    from duckduckgo_search import DDGS
+
+
+# Pydantic schemas for tools with multiple parameters
+class SaveDocumentSchema(BaseModel):
+    file_path: str = Field(description="Target file name with extension (e.g., 'report.pdf', 'summary.docx')")
+    content: str = Field(description="HTML-formatted content (use <h1>, <p>, <ul>, <li>, <b>, <i> tags for formatting)")
+    title: str = Field(default="Document", description="Document title (used in HTML header)")
 
 class DocumentTools:
     def __init__(self, root_dir: str):
@@ -80,6 +94,150 @@ class DocumentTools:
         except Exception as e:
             return f"Error reading PDF file: {str(e)}"
 
+    def save_document(self, file_path: str, content: str, title: str = "Document") -> str:
+        """
+        Saves formatted content to a document file. Supports: .pdf, .docx, .html, .txt
+        For PDF/DOCX: automatically creates HTML first, then converts via Pandoc.
+        Args:
+            file_path: Target file name with extension (e.g., 'report.pdf', 'summary.docx').
+            content: HTML-formatted content (use <h1>, <p>, <ul>, <li>, <b>, <i> tags for formatting).
+            title: Document title (used in HTML header).
+        """
+        import subprocess
+        import tempfile
+        
+        ext = os.path.splitext(file_path)[1].lower()
+        full_path = self._get_full_path(file_path)
+        
+        # Wrap content in proper HTML structure if not already
+        if not content.strip().startswith('<!DOCTYPE') and not content.strip().startswith('<html'):
+            html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>{title}</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }}
+        h1 {{ color: #333; }}
+        h2 {{ color: #555; }}
+        ul, ol {{ margin-left: 20px; }}
+        li {{ margin-bottom: 10px; }}
+        .source {{ font-style: italic; color: #666; }}
+    </style>
+</head>
+<body>
+{content}
+</body>
+</html>"""
+        else:
+            html_content = content
+        
+        try:
+            # For TXT: just write plain text (strip HTML)
+            if ext == '.txt':
+                from html import unescape
+                import re
+                plain_text = re.sub(r'<[^>]+>', '', html_content)
+                plain_text = unescape(plain_text)
+                with open(full_path, 'w', encoding='utf-8') as f:
+                    f.write(plain_text)
+                return f"Successfully saved text file: {file_path}"
+            
+            # For HTML: write directly
+            if ext == '.html':
+                with open(full_path, 'w', encoding='utf-8') as f:
+                    f.write(html_content)
+                return f"Successfully saved HTML file: {file_path}"
+            
+            # For PDF and DOCX: create temp HTML, then convert
+            if ext in ['.pdf', '.docx']:
+                # Create temp HTML file
+                html_path = full_path.replace(ext, '.html')
+                with open(html_path, 'w', encoding='utf-8') as f:
+                    f.write(html_content)
+                
+                # Try conversion
+                if ext == '.pdf':
+                    # Method 1: weasyprint (best for HTML->PDF, pure Python)
+                    try:
+                        from weasyprint import HTML
+                        HTML(filename=html_path).write_pdf(full_path)
+                        if os.path.exists(full_path) and os.path.getsize(full_path) > 0:
+                            return f"Successfully saved PDF: {file_path}"
+                    except ImportError:
+                        pass  # weasyprint not installed
+                    except Exception as e:
+                        print(f"weasyprint failed: {e}")
+                    
+                    # Method 2: wkhtmltopdf (fallback)
+                    try:
+                        result = subprocess.run(
+                            ['wkhtmltopdf', '--encoding', 'utf-8', '--quiet', html_path, full_path],
+                            capture_output=True, text=True, timeout=60
+                        )
+                        if result.returncode == 0 and os.path.exists(full_path):
+                            return f"Successfully saved PDF: {file_path}"
+                    except FileNotFoundError:
+                        pass  # wkhtmltopdf not installed
+                    except Exception:
+                        pass
+                    
+                    # Method 3: Pandoc with wkhtmltopdf engine
+                    if pypandoc:
+                        try:
+                            pypandoc.convert_file(html_path, 'pdf', outputfile=full_path, 
+                                                  extra_args=['--pdf-engine=wkhtmltopdf'])
+                            if os.path.exists(full_path) and os.path.getsize(full_path) > 0:
+                                return f"Successfully saved PDF: {file_path}"
+                        except Exception:
+                            pass
+                    
+                    # Fallback: Create DOCX instead and inform user
+                    docx_path = full_path.replace('.pdf', '.docx')
+                    if pypandoc:
+                        try:
+                            pypandoc.convert_file(html_path, 'docx', outputfile=docx_path)
+                            return f"PDF conversion failed (missing wkhtmltopdf). Created DOCX instead: {file_path.replace('.pdf', '.docx')}. Install wkhtmltopdf: 'brew install wkhtmltopdf'"
+                        except Exception as e:
+                            return f"Error: Could not create PDF or DOCX. Details: {str(e)}"
+                    return "Error: No PDF conversion tool available. Install wkhtmltopdf or pypandoc."
+                
+                elif ext == '.docx':
+                    if pypandoc:
+                        try:
+                            pypandoc.convert_file(html_path, 'docx', outputfile=full_path)
+                            if os.path.exists(full_path):
+                                return f"Successfully saved DOCX: {file_path}"
+                        except Exception as e:
+                            return f"Error converting to DOCX: {str(e)}"
+                    else:
+                        # Fallback: use python-docx directly
+                        try:
+                            from bs4 import BeautifulSoup
+                            from docx import Document as DocxDocument
+                            
+                            soup = BeautifulSoup(html_content, 'html.parser')
+                            doc = DocxDocument()
+                            doc.add_heading(title, 0)
+                            
+                            for element in soup.find_all(['p', 'h1', 'h2', 'h3', 'li']):
+                                text = element.get_text(strip=True)
+                                if element.name.startswith('h'):
+                                    level = int(element.name[1])
+                                    doc.add_heading(text, level)
+                                else:
+                                    doc.add_paragraph(text)
+                            
+                            doc.save(full_path)
+                            return f"Successfully saved DOCX: {file_path}"
+                        except Exception as e:
+                            return f"Error creating DOCX: {str(e)}"
+            
+            return f"Unsupported format: {ext}. Use .pdf, .docx, .html, or .txt"
+            
+        except Exception as e:
+            return f"Error saving document: {str(e)}"
+
     def get_tools(self):
         """Returns the list of bound tools."""
         # We need to bind self to the tool methods manually or re-create them?
@@ -96,9 +254,15 @@ class DocumentTools:
 
         return [
             StructuredTool.from_function(
+                func=self.save_document,
+                name="save_document",
+                description="Saves formatted content to a document file (.pdf, .docx, .html, .txt). Use HTML tags for formatting (h1, h2, p, ul, li, b, i). For PDF/DOCX: automatically handles conversion. This is the PREFERRED tool for creating formatted documents.",
+                args_schema=SaveDocumentSchema
+            ),
+            StructuredTool.from_function(
                 func=self.write_docx,
                 name="write_docx",
-                description="Creates a new Word document (.docx) with the given text."
+                description="Creates a new Word document (.docx) with plain text. Use save_document instead for formatted content."
             ),
             StructuredTool.from_function(
                 func=self.read_docx,
@@ -188,9 +352,6 @@ class PandocTools:
             source_path: Path to the source file (e.g. 'report.html').
             output_format: Target format extension (e.g. 'docx', 'pdf').
         """
-        if pypandoc is None:
-            return "Error: pypandoc module is not installed."
-
         try:
             full_source = self._get_full_path(source_path)
             if not os.path.exists(full_source):
@@ -200,6 +361,25 @@ class PandocTools:
             base_name = os.path.splitext(source_path)[0]
             target_filename = f"{base_name}.{output_format}"
             full_target = self._get_full_path(target_filename)
+            
+            # For HTML to PDF, try wkhtmltopdf first (more reliable than LaTeX)
+            if output_format.lower() == 'pdf' and source_path.lower().endswith('.html'):
+                try:
+                    import subprocess
+                    result = subprocess.run(
+                        ['wkhtmltopdf', '--encoding', 'utf-8', full_source, full_target],
+                        capture_output=True, text=True, timeout=30
+                    )
+                    if result.returncode == 0:
+                        return f"Successfully converted {source_path} to {target_filename}."
+                except FileNotFoundError:
+                    pass  # wkhtmltopdf not installed, fall through to pypandoc
+                except Exception:
+                    pass
+            
+            # Fallback to pypandoc
+            if pypandoc is None:
+                return "Error: pypandoc module is not installed and wkhtmltopdf not available."
             
             output = pypandoc.convert_file(full_source, output_format, outputfile=full_target)
             return f"Successfully converted {source_path} to {target_filename}."
@@ -322,7 +502,8 @@ Guidelines:
 1. Extract core keywords.
 2. If looking for a definition, DO NOT exclude dictionaries.
 3. If looking for specific data (prices, weather), exclude generic sites like dictionaries using -site:operator.
-4. DO NOT use quotes around dates (e.g., 2026-01-30 instead of "2026-01-30").
+3. If looking for specific data (prices, weather), exclude generic sites like dictionaries using -site:operator.
+4. If the query implies "current news" or "today", REMOVE specific dates (e.g., "2026-01-30") from the query string. The time_limit parameter handles the date.
 5. Use standard search operators (site:, ", -) effectively but sparingly.
 6. Return ONLY the optimized query string, nothing else.
 
@@ -406,10 +587,14 @@ Optimized Query:"""
             from bs4 import BeautifulSoup
             
             headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+                "Accept-Charset": "utf-8"
             }
             response = requests.get(url, headers=headers, timeout=10)
             response.raise_for_status()
+            
+            # Force UTF-8 encoding for Polish characters
+            response.encoding = response.apparent_encoding or 'utf-8'
             
             soup = BeautifulSoup(response.text, 'html.parser')
             
@@ -437,6 +622,11 @@ Optimized Query:"""
             StructuredTool.from_function(
                 func=self.search_web,
                 name="search_web",
-                description="Searches the Internet for current information. Use this to find facts, news, documentation, or events that happened after the model's training data cut-off."
+                description="Searches the Internet for current information. Returns a list of links with snippets. You MUST then use 'visit_page' on the most relevant links to read the full content."
+            ),
+            StructuredTool.from_function(
+                func=self.visit_page,
+                name="visit_page",
+                description="Visits a URL and extracts the text content. Use this AFTER search_web to read the full article. Input: URL string."
             )
         ]

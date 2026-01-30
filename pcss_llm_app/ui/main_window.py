@@ -92,6 +92,7 @@ class SettingsDialog(QDialog):
 class ChatWorker(QThread):
     finished = Signal(str)
     error = Signal(str)
+    log_message = Signal(str)
 
     def __init__(self, api_client, model, messages):
         super().__init__()
@@ -101,13 +102,20 @@ class ChatWorker(QThread):
 
     def run(self):
         try:
+            self.log_message.emit(f"ChatWorker: Sending request to model '{self.model}'...")
+            self.log_message.emit(f"ChatWorker: Input messages: {len(self.messages)}")
+            
             response = self.api_client.chat_completion(
                 model=self.model,
                 messages=self.messages
             )
             content = response.choices[0].message.content
+            self.log_message.emit("ChatWorker: Response received.")
+            self.log_message.emit(f"ChatWorker: Response length: {len(content)} chars.")
+            
             self.finished.emit(content)
         except Exception as e:
+            self.log_message.emit(f"ChatWorker Error: {str(e)}")
             self.error.emit(str(e))
 
 class AgentWorker(QThread):
@@ -196,6 +204,8 @@ class MainWindow(QMainWindow):
         sidebar_layout = QVBoxLayout(sidebar)
         
         self.history_list = QListWidget()
+        self.history_list.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.history_list.customContextMenuRequested.connect(self.show_history_context_menu)
         self.history_list.itemClicked.connect(self.load_history_conversation)
         sidebar_layout.addWidget(QLabel("History"))
         sidebar_layout.addWidget(self.history_list)
@@ -208,12 +218,20 @@ class MainWindow(QMainWindow):
         refresh_btn.clicked.connect(self.refresh_history)
         sidebar_layout.addWidget(refresh_btn)
 
+        clear_btn = QPushButton("Clear All History")
+        clear_btn.clicked.connect(self.clear_history)
+        sidebar_layout.addWidget(clear_btn)
+        sidebar_layout.addWidget(refresh_btn)
+
         settings_btn = QPushButton("Settings")
         settings_btn.clicked.connect(self.open_settings)
         sidebar_layout.addWidget(settings_btn)
 
         main_layout.addWidget(sidebar)
 
+        # Main Content Area (Splitter for Tabs + Console)
+        self.main_content_splitter = QSplitter(Qt.Vertical)
+        
         # Tab Widget
         self.tabs = QTabWidget()
         
@@ -227,7 +245,18 @@ class MainWindow(QMainWindow):
         self._init_agent_tab()
         self.tabs.addTab(self.agent_tab, "Agent Mode")
         
-        main_layout.addWidget(self.tabs)
+        self.main_content_splitter.addWidget(self.tabs)
+        
+        # Global Console
+        self.console_display = QTextEdit()
+        self.console_display.setReadOnly(True)
+        self.console_display.setPlaceholderText("Debug Console Log...")
+        self.console_display.setStyleSheet("background-color: #2b2b2b; color: #00ff00; font-family: monospace;")
+        self.console_display.hide()
+        self.main_content_splitter.addWidget(self.console_display)
+        self.main_content_splitter.setSizes([600, 150])
+
+        main_layout.addWidget(self.main_content_splitter)
         
         self.refresh_history()
 
@@ -248,6 +277,12 @@ class MainWindow(QMainWindow):
         load_btn = QPushButton("Load from File")
         load_btn.clicked.connect(self.load_from_file)
         controls_layout.addWidget(load_btn)
+
+        # Chat Console Toggle
+        self.toggle_console_chat_btn = QPushButton("Show Debug Console")
+        self.toggle_console_chat_btn.setCheckable(True)
+        self.toggle_console_chat_btn.toggled.connect(self.toggle_console)
+        controls_layout.addWidget(self.toggle_console_chat_btn)
         
         layout.addLayout(controls_layout)
         
@@ -296,30 +331,16 @@ class MainWindow(QMainWindow):
         agent_layout.addLayout(config_layout)
 
         # Agent Chat Display
-        # Agent Chat Display and Console Splitter
-        self.agent_splitter = QSplitter(Qt.Vertical)
-        
         self.agent_display = QTextBrowser()
         self.agent_display.setReadOnly(True)
         self.agent_display.setOpenExternalLinks(True)
-        self.agent_splitter.addWidget(self.agent_display)
-        
-        # Console
-        self.console_display = QTextEdit()
-        self.console_display.setReadOnly(True)
-        self.console_display.setPlaceholderText("Raw Agent Logs (Thoughts, Tools, Observations)...")
-        self.console_display.setStyleSheet("background-color: #2b2b2b; color: #00ff00; font-family: monospace;")
-        self.console_display.hide()
-        self.agent_splitter.addWidget(self.console_display)
-        self.agent_splitter.setSizes([600, 200])
-        
-        agent_layout.addWidget(self.agent_splitter)
+        agent_layout.addWidget(self.agent_display)
 
-        # Console Toggle
-        self.toggle_console_btn = QPushButton("Show Debug Console")
-        self.toggle_console_btn.setCheckable(True)
-        self.toggle_console_btn.toggled.connect(self.toggle_console)
-        config_layout.addWidget(self.toggle_console_btn)
+        # Agent Console Toggle
+        self.toggle_console_agent_btn = QPushButton("Show Debug Console")
+        self.toggle_console_agent_btn.setCheckable(True)
+        self.toggle_console_agent_btn.toggled.connect(self.toggle_console)
+        config_layout.addWidget(self.toggle_console_agent_btn)
         
         # Status Area
         status_layout = QHBoxLayout()
@@ -350,6 +371,7 @@ class MainWindow(QMainWindow):
 
     def _refresh_models(self):
         if self.api.is_configured():
+            self.model_combo.blockSignals(True) # Prevent triggering change reset during update
             models = self.api.list_models()
             self.model_combo.clear()
             if not models:
@@ -357,9 +379,13 @@ class MainWindow(QMainWindow):
                 self.model_combo.addItem("bielik_11b")
             else:
                 self.model_combo.addItems(models)
-
+            self.model_combo.blockSignals(False)
 
     def on_model_changed(self, text):
+        if not text:
+            return
+            
+        print(f"DEBUG: Model changed to {text}")        
         # Reset Chat
         self.start_new_chat()
         
@@ -367,7 +393,7 @@ class MainWindow(QMainWindow):
         self.agent_history = []
         self.current_agent_conversation_id = None
         self.agent_display.clear()
-        self.agent_display.append("<b>System:</b> Model changed. Please re-initialize Assistant.<br>")
+        self.agent_display.append(f"<b>System:</b> Model changed to {text}. Please re-initialize Assistant.<br>")
         self.agent_engine = None # Force re-creation with new model
         self.agent_status_label.setText("Model Changed")
 
@@ -399,6 +425,7 @@ class MainWindow(QMainWindow):
             return
 
         model = self.model_combo.currentText()
+        print(f"DEBUG: Sending message with model: {model}")
         if not self.current_conversation_id:
             title = text[:30] + "..."
             self.current_conversation_id = self.db.create_conversation(title, model)
@@ -413,6 +440,7 @@ class MainWindow(QMainWindow):
         self.worker = ChatWorker(self.api, model, self.chat_history)
         self.worker.finished.connect(self.handle_response)
         self.worker.error.connect(self.handle_error)
+        self.worker.log_message.connect(self.append_log) # Connect logging
         self.worker.start()
         
         self.message_input.setEnabled(False)
@@ -543,12 +571,24 @@ class MainWindow(QMainWindow):
             self.db.add_message(self.current_agent_conversation_id, "assistant", content)
 
     def toggle_console(self, checked):
+        # Sync buttons
+        self.toggle_console_chat_btn.blockSignals(True)
+        self.toggle_console_agent_btn.blockSignals(True)
+        
+        self.toggle_console_chat_btn.setChecked(checked)
+        self.toggle_console_agent_btn.setChecked(checked)
+        
+        text = "Hide Debug Console" if checked else "Show Debug Console"
+        self.toggle_console_chat_btn.setText(text)
+        self.toggle_console_agent_btn.setText(text)
+        
+        self.toggle_console_chat_btn.blockSignals(False)
+        self.toggle_console_agent_btn.blockSignals(False)
+
         if checked:
             self.console_display.show()
-            self.toggle_console_btn.setText("Hide Debug Console")
         else:
             self.console_display.hide()
-            self.toggle_console_btn.setText("Show Debug Console")
 
     def handle_agent_error(self, err):
         QMessageBox.critical(self, "Agent Error", err)
@@ -576,6 +616,38 @@ class MainWindow(QMainWindow):
         for role, content, _ in messages:
             self._append_message("AI" if role == "assistant" else "User", content)
             self.chat_history.append({"role": role, "content": content})
+
+    def show_history_context_menu(self, position):
+        item = self.history_list.itemAt(position)
+        if not item:
+            return
+            
+        menu = QMenu()
+        delete_action = menu.addAction("Delete Conversation")
+        action = menu.exec(self.history_list.mapToGlobal(position))
+        
+        if action == delete_action:
+            conv_id = item.data(Qt.UserRole)
+            self.delete_history_item(conv_id)
+
+    def delete_history_item(self, conv_id):
+        reply = QMessageBox.question(self, "Confirm Delete", 
+                                   "Are you sure you want to delete this conversation?",
+                                   QMessageBox.Yes | QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            self.db.delete_conversation(conv_id)
+            if self.current_conversation_id == conv_id:
+                self.start_new_chat()
+            self.refresh_history()
+
+    def clear_history(self):
+        reply = QMessageBox.question(self, "Confirm Clear All", 
+                                   "Are you sure you want to delete ALL history? This cannot be undone.",
+                                   QMessageBox.Yes | QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            self.db.clear_all_conversations()
+            self.start_new_chat()
+            self.refresh_history()
 
     def save_to_file(self):
         path, _ = QFileDialog.getSaveFileName(self, "Save Conversation", "", "JSON Files (*.json)")

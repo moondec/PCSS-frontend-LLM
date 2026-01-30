@@ -94,6 +94,16 @@ Observation: the result of the action
 Thought: I now know the final answer
 Final Answer: the final answer to the original input question
 
+GUIDELINES:
+- **CURRENT DATE OVERRIDE**: TODAY IS {current_date}. Ignore any internal knowledge claiming it is 2024 or earlier.
+- **NEWS SEARCH**: When asked for "current" or "today's" news, you MUST use the `time_limit` parameter.
+  - Example: `Action: search_web` -> `Action Input: {{"query": "Poland news", "time_limit": "d"}}`
+- **DEEP ANALYSIS**:
+  1. FIRST use `search_web` to find links.
+  2. THEN use `visit_page` on the most relevant links (2-3 max) to read the full content.
+  3. FINALLY synthesize the information from the full content, NOT just the search snippets.
+- Citation is important. Always provide the source URL.
+
 Begin!
 """
         
@@ -168,7 +178,7 @@ Begin!
 
         system_template = f"""Answer the following questions as best you can. You have access to the following tools:
 
-Current Date: {current_date}
+**SYSTEM DATE: {current_date}** - This is the ACTUAL current date. Trust this value, NOT your training data.
 
 {tool_descriptions}
 
@@ -183,14 +193,24 @@ Example for write_docx: {{"file_path": "report.docx", "text": "Title\\n\\nConten
 Example for ocr_image: {{"file_path": "scan.png"}}
 Example for convert_document: {{"source_path": "report.html", "output_format": "docx"}}
 Example for analyze_image: {{"file_path": "chart.png", "prompt": "What is the trend?"}}
-Example for search_web: {{"query": "current weather in Poznan"}}
-IMPORTANT: The user does NOT know what happened after your training data cutoff. You MUST use 'search_web' tools for any query about current events, news, or specific technical documentation.
-IMPORTANT: For best results with complex documents (tables, headers), write the content to an HTML file first using write_file, then use convert_document to transform it to PDF or DOCX.
-IMPORTANT: Use 'ocr_image' for simple text extraction. Use 'analyze_image' for understanding layouts, charts, or describing scenes.
+Example for search_web: {{"query": "news Poland today"}}
+Example for visit_page: "https://www.rmf24.pl/fakty"
 Observation: the result of the action
 ... (this Thought/Action/Action Input/Observation can repeat N times)
 Thought: I now know the final answer
 Final Answer: the final answer to the original input question
+
+**CRITICAL INSTRUCTIONS:**
+1. TODAY IS {current_date}. This is NOT the future. Your training data is outdated.
+2. When asked for NEWS or CURRENT events:
+   a) FIRST, use `search_web` to find links.
+   b) THEN, use `visit_page` on TOP 2-3 relevant links to READ the full content.
+   c) FINALLY, synthesize the information from the visited pages.
+3. DO NOT conclude "no results" if search_web returns links. Those links ARE the results.
+4. DO NOT ask the user to visit websites themselves. YOU must visit them using `visit_page`.
+5. When asked to SAVE to PDF, DOCX, or formatted documents:
+   - Use `save_document` with HTML-formatted content (h1, h2, p, ul, li, b, i tags)
+   - Example: save_document({{"file_path": "report.pdf", "content": "<h1>Title</h1><p>Content...</p>", "title": "Report Title"}})
 
 Begin!
 """
@@ -211,6 +231,12 @@ Begin!
         max_steps = 15
         
         for i in range(max_steps):
+            # Reset variables at start of each iteration to prevent stale values
+            action = None
+            action_input = None
+            tool_args = None
+            match = None
+            
             # print(f"DEBUG: Start Step {i}", flush=True)
             self._log(f"--- Step {i+1} ---")
             
@@ -256,9 +282,11 @@ Begin!
                          pass
 
             if match:
-                if 'action' not in locals(): # If standard ReAct match
-                     action = match.group(1).strip()
-                     action_input = match.group(2).strip()
+                # Extract from regex match only if it's a regex match object (not True flag from JSON parsing)
+                if hasattr(match, 'group'):
+                    action = match.group(1).strip()
+                    action_input = match.group(2).strip()
+                # If match == True, action and action_input were already set by JSON parsing above
                 
                 # Sanitize input: remove surrounding quotes if present
                 

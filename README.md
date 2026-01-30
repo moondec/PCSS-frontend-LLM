@@ -50,6 +50,8 @@ The application has two distinct tabs:
 ### Prerequisites
 -   **Anaconda** or **Miniconda** installed.
 -   Python 3.10+
+-   **Pandoc** >= 3.0 ([Download](https://github.com/jgm/pandoc/releases)) - Required for document conversion.
+-   **wkhtmltopdf** (optional) - Fallback for PDF generation.
 
 ### Setup Pipeline
 
@@ -70,7 +72,7 @@ The application has two distinct tabs:
     ```bash
     conda create -n bielik python=3.10 -y
     conda activate bielik
-    pip install pyside6 openai keyring markdown langchain langchain-openai langchain-community pypdf python-docx
+    pip install pyside6 openai keyring markdown langchain langchain-openai langchain-community pypdf python-docx pypandoc duckduckgo-search
     ```
 
 ## ⚙️ Configuration

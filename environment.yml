@@ -3,18 +3,31 @@ channels:
   - conda-forge
   - defaults
 dependencies:
+  # Core
   - python=3.10
   - pip
-  - keyring
+  
+  # GUI Framework
   - pyside6
-  - openai
   - markdown
+  
+  # Security
+  - keyring
+  
+  # LLM / AI
+  - openai
   - langchain
   - langchain-openai
   - langchain-community
+  
+  # Document Processing
+  - pypdf              # PDF reading
+  - python-docx        # DOCX reading/writing
+  - pypandoc           # Document conversion (requires external pandoc)
+  
+  # Internet Search
   - duckduckgo-search
-  - pypdf
-  - python-docx
-  - pypandoc
-  - pip:
-    - --extra-index-url https://pypi.org/simple
+  
+  # Note: External tools required (install separately):
+  # - pandoc >= 3.0 (https://pandoc.org/installing.html)
+  # - wkhtmltopdf (optional, fallback for PDF generation)

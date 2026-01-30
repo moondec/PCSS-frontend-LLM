@@ -13,6 +13,11 @@ Basic file system operations within the workspace.
 Specialized tools for handling office documents.
 *   **read_docx / read_pdf**: Extracts text from DOCX and PDF files.
 *   **write_docx**: Creates simple Word documents (plain text only).
+*   **save_document** ⭐ (Recommended):
+    *   *Function:* Creates formatted PDF, DOCX, HTML, or TXT files from HTML-formatted content.
+    *   *Usage:* Provide HTML content (h1, h2, p, ul, li, b, i tags) and the tool handles conversion.
+    *   *Example:* `save_document({"file_path": "report.pdf", "content": "<h1>Title</h1><p>Content...</p>", "title": "My Report"})`
+    *   *Requires:* Pandoc (external tool).
 *   **convert_document**:
     *   *Function:* Converts files between formats (e.g., HTML -> DOCX, HTML -> PDF).
     *   *Usage Strategy:* To create a complex report, the Agent first writes an HTML file (with tables, headers, bold text) and then converts it to DOCX/PDF.

@@ -79,3 +79,20 @@ class DatabaseManager:
         rows = cursor.fetchall()
         conn.close()
         return rows
+
+    def delete_conversation(self, conversation_id):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        # Delete messages first (cascade simulation)
+        cursor.execute('DELETE FROM messages WHERE conversation_id = ?', (conversation_id,))
+        cursor.execute('DELETE FROM conversations WHERE id = ?', (conversation_id,))
+        conn.commit()
+        conn.close()
+
+    def clear_all_conversations(self):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM messages')
+        cursor.execute('DELETE FROM conversations')
+        conn.commit()
+        conn.close()
