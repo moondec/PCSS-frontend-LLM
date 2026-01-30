@@ -11,8 +11,7 @@ try:
 except ImportError:
     pypandoc = None
 
-from langchain_community.tools import DuckDuckGoSearchRun
-from langchain_community.utilities import DuckDuckGoSearchAPIWrapper
+from duckduckgo_search import DDGS
 
 class DocumentTools:
     def __init__(self, root_dir: str):
@@ -283,8 +282,7 @@ class VisionTools:
 
 class WebSearchTools:
     def __init__(self):
-        self.wrapper = DuckDuckGoSearchAPIWrapper(region="pl-pl", time="y", max_results=5)
-        self.search = DuckDuckGoSearchRun(api_wrapper=self.wrapper)
+        pass
 
     def search_web(self, query: str) -> str:
         """
@@ -293,7 +291,18 @@ class WebSearchTools:
             query: The search query (e.g., 'current weather in Poznan', 'latest AI news').
         """
         try:
-            return self.search.invoke(query)
+            results = []
+            with DDGS() as ddgs:
+                # Get up to 5 results
+                ddgs_gen = ddgs.text(query, region="pl-pl", max_results=5)
+                if ddgs_gen:
+                    for r in ddgs_gen:
+                         results.append(f"Title: {r.get('title')}\nLink: {r.get('href')}\nSnippet: {r.get('body')}\n")
+            
+            if not results:
+                return "No results found."
+            
+            return "\n---\n".join(results)
         except Exception as e:
             return f"Error searching web: {str(e)}"
 

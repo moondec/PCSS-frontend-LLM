@@ -160,7 +160,11 @@ Begin!
         tool_names = ", ".join(self.tool_map.keys())
         tool_descriptions = "\n".join([f"{t.name}: {t.description}" for t in self.tools])
         
+        current_date = datetime.datetime.now().strftime("%Y-%m-%d")
+
         system_template = f"""Answer the following questions as best you can. You have access to the following tools:
+
+Current Date: {current_date}
 
 {tool_descriptions}
 
@@ -248,15 +252,11 @@ Begin!
                          pass
 
             if match:
-                if not 'action' in locals(): # If standard ReAct match
+                if 'action' not in locals(): # If standard ReAct match
                      action = match.group(1).strip()
                      action_input = match.group(2).strip()
                 
                 # Sanitize input: remove surrounding quotes if present
-            
-            if match:
-                action = match.group(1).strip()
-                action_input = match.group(2).strip()
                 
                 # Sanitize input: remove surrounding quotes if present
                 if (action_input.startswith('"') and action_input.endswith('"')) or \
