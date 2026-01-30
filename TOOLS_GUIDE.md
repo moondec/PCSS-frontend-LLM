@@ -33,3 +33,11 @@ Tools that allow the agent to "see" images using vision models.
 Just ask the agent!
 *   *"Read this invoice.png and tell me the total."* (Uses `analyze_image`)
 *   *"Create a sales report PDF with a table."* (Uses `write_file` [html] -> `convert_document`)
+
+## 🌐 Internet Access
+Tools that connect the agent to the outside world.
+
+*   **search_web**:
+    *   *Function:* Searches DuckDuckGo for real-time information.
+    *   *Privacy:* No user tracking, no API keys required.
+    *   *Use Cases:* Checking weather, stock prices, latest news, or documentation for new libraries.

@@ -4,7 +4,7 @@ import json
 from langchain_openai import ChatOpenAI
 from langchain_community.agent_toolkits import FileManagementToolkit
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
-from pcss_llm_app.core.tools import DocumentTools, OCRTools, PandocTools, VisionTools
+from pcss_llm_app.core.tools import DocumentTools, OCRTools, PandocTools, VisionTools, WebSearchTools
 
 class LangChainAgentEngine:
     def __init__(self, api_key: str, model_name: str, workspace_path: str, log_callback=None):
@@ -52,6 +52,11 @@ class LangChainAgentEngine:
         # Add Vision Tools (Hybrid Agent)
         vision_tools = VisionTools(root_dir=str(self.workspace_path), api_key=self.api_key)
         self.tools.extend(vision_tools.get_tools())
+
+        # Add Web Search Tools
+        web_search_tools = WebSearchTools()
+        self.tools.extend(web_search_tools.get_tools())
+
 
 
         # print("DEBUG: Building map", flush=True)
@@ -165,8 +170,10 @@ Example for write_docx: {{"file_path": "report.docx", "text": "Title\\n\\nConten
 Example for ocr_image: {{"file_path": "scan.png"}}
 Example for convert_document: {{"source_path": "report.html", "output_format": "docx"}}
 Example for analyze_image: {{"file_path": "chart.png", "prompt": "What is the trend?"}}
+Example for search_web: {{"query": "current weather in Poznan"}}
 IMPORTANT: For best results with complex documents (tables, headers), write the content to an HTML file first using write_file, then use convert_document to transform it to PDF or DOCX.
 IMPORTANT: Use 'ocr_image' for simple text extraction. Use 'analyze_image' for understanding layouts, charts, or describing scenes.
+IMPORTANT: Use 'search_web' to verify facts or find up-to-date information.
 Observation: the result of the action
 ... (this Thought/Action/Action Input/Observation can repeat N times)
 Thought: I now know the final answer

@@ -21,6 +21,11 @@ The application features a powerful Agent capable of performing tasks on your lo
     -   `WriteFile`: Create or overwrite files.
     -   `Copy/Move/Delete`: Manage files.
 -   **Use Case**: "Read this report.pdf and create a summary.txt" -> Agent does it automatically.
+-   **Autonomous Agent**: A "Agent Mode" that can perform complex tasks (File management, text processing).
+-   **Vision Capabilities**: Hybrid agent using GPT-4o for image analysis (`analyze_image`).
+-   **Internet Access**: Integrated **DuckDuckGo Search** for real-time information retrieval.
+-   **Document Generation**: Create professional PDF/DOCX reports (via Pandoc).
+-   **Local & Secure**: Your data stays on your machine (except for API calls to PCSS/OpenAI).
 
 ### 3. 🔒 Security
 -   **Secure Storage**: API Keys are stored in the system Keyring (macOS Keychain, Windows Credential Locker), never in plain text.

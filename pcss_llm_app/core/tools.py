@@ -11,6 +11,9 @@ try:
 except ImportError:
     pypandoc = None
 
+from langchain_community.tools import DuckDuckGoSearchRun
+from langchain_community.utilities import DuckDuckGoSearchAPIWrapper
+
 class DocumentTools:
     def __init__(self, root_dir: str):
         self.root_dir = root_dir
@@ -212,7 +215,7 @@ class PandocTools:
                 description="Converts documents between formats (e.g. HTML to DOCX). Best used for creating formatted reports: 'Write content to .html then convert to .docx'."
             )
         ]
-        ]
+
 
 class VisionTools:
     def __init__(self, root_dir: str, api_key: str):
@@ -275,5 +278,30 @@ class VisionTools:
                 func=self.analyze_image,
                 name="analyze_image",
                 description="Analyzes an image using GPT-4o. Use this to descriptive scenes, understand charts, or analyze document layouts. Input: file_path and prompt."
+            )
+        ]
+
+class WebSearchTools:
+    def __init__(self):
+        self.wrapper = DuckDuckGoSearchAPIWrapper(region="pl-pl", time="y", max_results=5)
+        self.search = DuckDuckGoSearchRun(api_wrapper=self.wrapper)
+
+    def search_web(self, query: str) -> str:
+        """
+        Performs a web search using DuckDuckGo.
+        Args:
+            query: The search query (e.g., 'current weather in Poznan', 'latest AI news').
+        """
+        try:
+            return self.search.invoke(query)
+        except Exception as e:
+            return f"Error searching web: {str(e)}"
+
+    def get_tools(self):
+        return [
+            StructuredTool.from_function(
+                func=self.search_web,
+                name="search_web",
+                description="Searches the Internet for current information. Use this to find facts, news, documentation, or events that happened after the model's training data cut-off."
             )
         ]
