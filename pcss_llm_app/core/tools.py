@@ -11,7 +11,7 @@ try:
 except ImportError:
     pypandoc = None
 
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 
 class DocumentTools:
     def __init__(self, root_dir: str):
@@ -298,7 +298,12 @@ class WebSearchTools:
             StructuredTool.from_function(
                 func=self.search_web,
                 name="search_web",
-                description="Performs a web search using DuckDuckGo. Use this to find current events, specific facts, or data not in your training set. Input: query string."
+                description="Performs a web search using DuckDuckGo. Use this to find current events, specific facts, or data not in your training set. Input: query string. Optional: time_limit ('d'=day, 'w'=week, 'm'=month)."
+            ),
+            StructuredTool.from_function(
+                func=self.visit_page,
+                name="visit_page",
+                description="Visits a specific URL and extracts its text content. Use this to read the full article after finding a link with search_web. Input: url string."
             )
         ]
 
@@ -317,8 +322,9 @@ Guidelines:
 1. Extract core keywords.
 2. If looking for a definition, DO NOT exclude dictionaries.
 3. If looking for specific data (prices, weather), exclude generic sites like dictionaries using -site:operator.
-4. Use standard search operators (site:, ", -) effectively.
-5. Return ONLY the optimized query string, nothing else.
+4. DO NOT use quotes around dates (e.g., 2026-01-30 instead of "2026-01-30").
+5. Use standard search operators (site:, ", -) effectively but sparingly.
+6. Return ONLY the optimized query string, nothing else.
 
 Optimized Query:"""
             
@@ -329,7 +335,7 @@ Optimized Query:"""
                 temperature=0.3
             )
             refined = response.choices[0].message.content.strip()
-            # Remove quotes if present
+            # Remove quotes if present around the whole string
             if (refined.startswith('"') and refined.endswith('"')):
                 refined = refined[1:-1]
             return refined
@@ -337,32 +343,52 @@ Optimized Query:"""
             print(f"Query refinement failed: {e}")
             return query
 
-    def search_web(self, query: str) -> str:
+    def search_web(self, query: str, time_limit: str = None) -> str:
         """
         Performs a web search using DuckDuckGo.
         Args:
-            query: The search query (e.g., 'current weather in Poznan', 'latest AI news').
+            query: The search query.
+            time_limit: Optional time limit ('d', 'w', 'm', 'y').
         """
         try:
-            # Smart Refinement
-            final_query = self._refine_query(query)
-            print(f"DEBUG: Refined Query: '{query}' -> '{final_query}'")
+            # Heuristic: Auto-detect time limit if not provided
+            if not time_limit:
+                lower_q = query.lower()
+                if any(w in lower_q for w in ["dzisiaj", "today", "news", "wiadomości", "najnowsze", "latest", "aktualne", "current"]):
+                    time_limit = "d"
+                    print(f"DEBUG: Auto-detected time_limit='d' from query keywords.")
 
-            # Fallback Filter (if refinement failed or LLM didn't catch it)
-            # Only apply if query contains common trigger words
+            # Smart Refinement (skip if time_limit is set generally, but refine query string is still good)
+            final_query = self._refine_query(query)
+            print(f"DEBUG: Refined Query: '{query}' -> '{final_query}' TimeLimit: {time_limit}")
+
+            # Fallback Filter
             should_filter = any(w in query.lower() for w in ["aktualny", "znaczenie", "co to"])
             
             results = []
-            with DDGS() as ddgs:
-                # Get up to 10 results
-                ddgs_gen = ddgs.text(final_query, region="pl-pl", max_results=10)
-                if ddgs_gen:
-                    for r in ddgs_gen:
-                         link = r.get('href', '')
-                         if should_filter:
-                             if any(x in link for x in ['sjp.pwn.pl', 'synonim.net', 'wiktionary.org', 'diki.pl', 'dobryslownik.pl', 'synonimy.pl', 'sjp.pl']):
-                                 continue
-                         results.append(f"Title: {r.get('title')}\nLink: {link}\nSnippet: {r.get('body')}\n")
+            
+            # Helper function to perform search
+            def perform_search(search_query, t_limit=None):
+                search_results = []
+                with DDGS() as ddgs:
+                    # Get up to 10 results
+                    ddgs_gen = ddgs.text(search_query, region="pl-pl", max_results=10, timelimit=t_limit)
+                    if ddgs_gen:
+                        for r in ddgs_gen:
+                             link = r.get('href', '')
+                             if should_filter:
+                                 if any(x in link for x in ['sjp.pwn.pl', 'synonim.net', 'wiktionary.org', 'diki.pl', 'dobryslownik.pl', 'synonimy.pl', 'sjp.pl']):
+                                     continue
+                             search_results.append(f"Title: {r.get('title')}\nLink: {link}\nSnippet: {r.get('body')}\n")
+                return search_results
+
+            # 1. Try Refined Query
+            results = perform_search(final_query, time_limit)
+            
+            # 2. Fallback: If refined query yielded no results, try original query
+            if not results and final_query != query:
+                print(f"DEBUG: Refined query returned 0 results. Falling back to original query: '{query}'")
+                results = perform_search(query, time_limit)
             
             if not results:
                 return "No results found."
@@ -370,6 +396,41 @@ Optimized Query:"""
             return "\n---\n".join(results)
         except Exception as e:
             return f"Error searching web: {str(e)}"
+
+    def visit_page(self, url: str) -> str:
+        """
+        Visits a URL and extracts text content.
+        """
+        try:
+            import requests
+            from bs4 import BeautifulSoup
+            
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            }
+            response = requests.get(url, headers=headers, timeout=10)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Remove scripts and styles
+            for script in soup(["script", "style", "nav", "footer", "header"]):
+                script.decompose()
+            
+            text = soup.get_text()
+            
+            # Clean text
+            lines = (line.strip() for line in text.splitlines())
+            chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+            text = '\n'.join(chunk for chunk in chunks if chunk)
+            
+            # Limit length to avoid context overflow (approx 2000 words / 8000 chars)
+            return text[:8000] + "..." if len(text) > 8000 else text
+            
+        except ImportError:
+            return "Error: 'requests' or 'beautifulsoup4' libraries not found. Please install them."
+        except Exception as e:
+            return f"Error visiting page: {str(e)}"
 
     def get_tools(self):
         return [
