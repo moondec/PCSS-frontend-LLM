@@ -152,6 +152,7 @@ class MainWindow(QMainWindow):
         
         self.current_conversation_id = None
         self.current_conversation_id = None
+        self.current_agent_conversation_id = None
         self.chat_history = [] 
 
         # Agent Log Signal
@@ -252,22 +253,7 @@ class MainWindow(QMainWindow):
         # Chat Display
         self.chat_display = QTextEdit()
         self.chat_display.setReadOnly(True)
-        
-        # Agent Console
-        self.console_display = QTextEdit()
-        self.console_display.setReadOnly(True)
-        self.console_display.setPlaceholderText("Agent logs will appear here...")
-        self.console_display.setMaximumHeight(200)
-        self.console_display.setStyleSheet("background-color: #2b2b2b; color: #aaaaaa; font-family: monospace;")
-        self.console_display.hide() # Hidden by default until agent mode? Or toggle? Let's show it in agent mode.
-
-        # Splitter for Chat and Console
-        self.content_splitter = QSplitter(Qt.Vertical)
-        self.content_splitter.addWidget(self.chat_display)
-        self.content_splitter.addWidget(self.console_display)
-        self.content_splitter.setSizes([600, 200])
-
-        layout.addWidget(self.content_splitter)
+        layout.addWidget(self.chat_display)
         
         # Input
         input_layout = QHBoxLayout()
@@ -308,9 +294,29 @@ class MainWindow(QMainWindow):
         agent_layout.addLayout(config_layout)
 
         # Agent Chat Display
+        # Agent Chat Display and Console Splitter
+        self.agent_splitter = QSplitter(Qt.Vertical)
+        
         self.agent_display = QTextEdit()
         self.agent_display.setReadOnly(True)
-        agent_layout.addWidget(self.agent_display)
+        self.agent_splitter.addWidget(self.agent_display)
+        
+        # Console
+        self.console_display = QTextEdit()
+        self.console_display.setReadOnly(True)
+        self.console_display.setPlaceholderText("Raw Agent Logs (Thoughts, Tools, Observations)...")
+        self.console_display.setStyleSheet("background-color: #2b2b2b; color: #00ff00; font-family: monospace;")
+        self.console_display.hide()
+        self.agent_splitter.addWidget(self.console_display)
+        self.agent_splitter.setSizes([600, 200])
+        
+        agent_layout.addWidget(self.agent_splitter)
+
+        # Console Toggle
+        self.toggle_console_btn = QPushButton("Show Debug Console")
+        self.toggle_console_btn.setCheckable(True)
+        self.toggle_console_btn.toggled.connect(self.toggle_console)
+        config_layout.addWidget(self.toggle_console_btn)
         
         # Status Area
         status_layout = QHBoxLayout()
@@ -431,6 +437,10 @@ class MainWindow(QMainWindow):
             
             self.agent_status_label.setText("Agent Ready")
             self.agent_history = [] # Reset history
+            
+            # Start new persistence session for Agent
+            self.current_agent_conversation_id = None # Will be created on first message
+            
             self.agent_display.append(f"<b>System:</b> Agent '{name}' initialized in workspace: {workspace}<br>")
             self.agent_display.append(f"<b>System:</b> Agent has tools: [Read, Write, List, Copy, Move, Delete]<br>")
             
@@ -441,6 +451,7 @@ class MainWindow(QMainWindow):
     def create_thread(self):
         # In LangChain mode, "New Thread" just clears memory
         self.agent_history = []
+        self.current_agent_conversation_id = None
         self.agent_display.clear()
         self.agent_display.append("<b>System:</b> Memory cleared. New Session.<br>")
         self.agent_status_label.setText("Ready")
@@ -465,6 +476,15 @@ class MainWindow(QMainWindow):
         # But AgentExecutor with chat_history handles it.
         # We need to maintain the list of (human, ai) tuples or BaseMessages.
         # Let's assume engine.run expects a list.
+        
+        # Persistence
+        if not self.current_agent_conversation_id:
+             model = self.model_combo.currentText()
+             title = f"Agent: {text[:20]}..."
+             self.current_agent_conversation_id = self.db.create_conversation(title, model, mode="agent")
+             self.refresh_history()
+        
+        self.db.add_message(self.current_agent_conversation_id, "user", text)
         
         self.agent_worker = AgentWorker(self.agent_engine, text, self.agent_history)
         self.agent_status_label.setText("Processing...")
@@ -497,6 +517,21 @@ class MainWindow(QMainWindow):
         self.agent_status_label.setText("Ready")
         self.agent_input.setEnabled(True)
         self.agent_input.setFocus()
+
+        self.agent_input.setEnabled(True)
+        self.agent_input.setFocus()
+        
+        # Persist Agent Response
+        if self.current_agent_conversation_id:
+            self.db.add_message(self.current_agent_conversation_id, "assistant", content)
+
+    def toggle_console(self, checked):
+        if checked:
+            self.console_display.show()
+            self.toggle_console_btn.setText("Hide Debug Console")
+        else:
+            self.console_display.hide()
+            self.toggle_console_btn.setText("Show Debug Console")
 
     def handle_agent_error(self, err):
         QMessageBox.critical(self, "Agent Error", err)
