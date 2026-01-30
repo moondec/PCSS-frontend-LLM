@@ -6,6 +6,10 @@ from pypdf import PdfReader
 from openai import OpenAI
 import base64
 import mimetypes
+try:
+    import pypandoc
+except ImportError:
+    pypandoc = None
 
 class DocumentTools:
     def __init__(self, root_dir: str):
@@ -165,5 +169,111 @@ class OCRTools:
                 func=self.ocr_image,
                 name="ocr_image",
                 description="Extracts text from an image file (PNG, JPG) using OCR. Use this to read scanned documents or text in images."
+            )
+        ]
+
+class PandocTools:
+    def __init__(self, root_dir: str):
+        self.root_dir = root_dir
+
+    def _get_full_path(self, file_path: str) -> str:
+         return os.path.join(self.root_dir, file_path)
+
+    def convert_document(self, source_path: str, output_format: str) -> str:
+        """
+        Converts a document (e.g. HTML) to another format (e.g. DOCX, PDF) using Pandoc.
+        Args:
+            source_path: Path to the source file (e.g. 'report.html').
+            output_format: Target format extension (e.g. 'docx', 'pdf').
+        """
+        if pypandoc is None:
+            return "Error: pypandoc module is not installed."
+
+        try:
+            full_source = self._get_full_path(source_path)
+            if not os.path.exists(full_source):
+                 return f"Error: Source file {source_path} not found."
+            
+            # Construct output filename
+            base_name = os.path.splitext(source_path)[0]
+            target_filename = f"{base_name}.{output_format}"
+            full_target = self._get_full_path(target_filename)
+            
+            output = pypandoc.convert_file(full_source, output_format, outputfile=full_target)
+            return f"Successfully converted {source_path} to {target_filename}."
+        except Exception as e:
+             return f"Error converting document: {str(e)}"
+
+    def get_tools(self):
+        return [
+            StructuredTool.from_function(
+                func=self.convert_document,
+                name="convert_document",
+                description="Converts documents between formats (e.g. HTML to DOCX). Best used for creating formatted reports: 'Write content to .html then convert to .docx'."
+            )
+        ]
+        ]
+
+class VisionTools:
+    def __init__(self, root_dir: str, api_key: str):
+        self.root_dir = root_dir
+        self.api_key = api_key
+        # Always use GPT-4o for vision tasks, regardless of main agent model
+        self.client = OpenAI(
+            api_key=api_key,
+            base_url="https://llm.hpc.pcss.pl/v1"
+        )
+        self.model = "gpt-4o"
+
+    def _get_full_path(self, file_path: str) -> str:
+        return os.path.join(self.root_dir, file_path)
+
+    def analyze_image(self, file_path: str, prompt: str = "Describe this image in detail.") -> str:
+        """
+        Analyzes an image file using a Vision LLM (GPT-4o) to understand its content, layout, or extract data.
+        Args:
+            file_path: The name of the image file (e.g., 'chart.png').
+            prompt: Question or instruction about the image (e.g., 'What is the trend in this chart?').
+        """
+        try:
+            full_path = self._get_full_path(file_path)
+            if not os.path.exists(full_path):
+                return f"Error: File {file_path} not found."
+            
+            # Basic mime check
+            mime_type, _ = mimetypes.guess_type(full_path)
+            if not mime_type or not mime_type.startswith('image'):
+                return f"Error: File {file_path} does not appear to be an image ({mime_type})."
+
+            with open(full_path, "rb") as image_file:
+                base64_image = base64.b64encode(image_file.read()).decode('utf-8')
+            
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:{mime_type};base64,{base64_image}"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            return f"Error analyzing image: {str(e)}"
+
+    def get_tools(self):
+        return [
+            StructuredTool.from_function(
+                func=self.analyze_image,
+                name="analyze_image",
+                description="Analyzes an image using GPT-4o. Use this to descriptive scenes, understand charts, or analyze document layouts. Input: file_path and prompt."
             )
         ]

@@ -4,7 +4,7 @@ import json
 from langchain_openai import ChatOpenAI
 from langchain_community.agent_toolkits import FileManagementToolkit
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
-from pcss_llm_app.core.tools import DocumentTools, OCRTools
+from pcss_llm_app.core.tools import DocumentTools, OCRTools, PandocTools, VisionTools
 
 class LangChainAgentEngine:
     def __init__(self, api_key: str, model_name: str, workspace_path: str, log_callback=None):
@@ -44,6 +44,15 @@ class LangChainAgentEngine:
         # Add OCR Tools
         ocr_tools = OCRTools(root_dir=str(self.workspace_path), api_key=self.api_key)
         self.tools.extend(ocr_tools.get_tools())
+
+        # Add Pandoc Tools
+        pandoc_tools = PandocTools(root_dir=str(self.workspace_path))
+        self.tools.extend(pandoc_tools.get_tools())
+
+        # Add Vision Tools (Hybrid Agent)
+        vision_tools = VisionTools(root_dir=str(self.workspace_path), api_key=self.api_key)
+        self.tools.extend(vision_tools.get_tools())
+
 
         # print("DEBUG: Building map", flush=True)
         self.tool_map = {t.name: t for t in self.tools}
@@ -154,7 +163,10 @@ Action Input: the input to the action. If the action requires multiple arguments
 Example for write_file: {{"file_path": "example.txt", "text": "Hello World"}}
 Example for write_docx: {{"file_path": "report.docx", "text": "Title\\n\\nContent paragraph."}}
 Example for ocr_image: {{"file_path": "scan.png"}}
-IMPORTANT: write_docx only supports plain text. Do not attempt to use decorative fonts, colors, or advanced formatting.
+Example for convert_document: {{"source_path": "report.html", "output_format": "docx"}}
+Example for analyze_image: {{"file_path": "chart.png", "prompt": "What is the trend?"}}
+IMPORTANT: For best results with complex documents (tables, headers), write the content to an HTML file first using write_file, then use convert_document to transform it to PDF or DOCX.
+IMPORTANT: Use 'ocr_image' for simple text extraction. Use 'analyze_image' for understanding layouts, charts, or describing scenes.
 Observation: the result of the action
 ... (this Thought/Action/Action Input/Observation can repeat N times)
 Thought: I now know the final answer

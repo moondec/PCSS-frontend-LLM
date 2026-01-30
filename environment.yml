@@ -14,5 +14,6 @@ dependencies:
   - langchain-community
   - pypdf
   - python-docx
+  - pypandoc
   - pip:
     - --extra-index-url https://pypi.org/simple

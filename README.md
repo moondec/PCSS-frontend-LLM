@@ -25,6 +25,7 @@ The application features a powerful Agent capable of performing tasks on your lo
 ### 3. 🔒 Security
 -   **Secure Storage**: API Keys are stored in the system Keyring (macOS Keychain, Windows Credential Locker), never in plain text.
 -   **Local Data**: All history and settings are stored locally.
+-   **Documentation**: See [MODEL_GUIDE.md](MODEL_GUIDE.md) and [TOOLS_GUIDE.md](TOOLS_GUIDE.md).
 
 ## 🛠️ Installation
 
