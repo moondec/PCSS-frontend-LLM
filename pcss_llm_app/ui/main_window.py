@@ -4,7 +4,7 @@ from PySide6.QtCore import Qt, QSize, QTimer, QThread, Signal, QObject, QEvent
 from PySide6.QtGui import QAction, QIcon, QTextCursor, QPixmap
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
-    QTextEdit, QLineEdit, QPushButton, QLabel, 
+    QTextEdit, QTextBrowser, QLineEdit, QPushButton, QLabel, 
     QComboBox, QSplitter, QFrame, QScrollArea, QSizePolicy,
     QApplication, QTabWidget, QFileDialog, QMessageBox, QDialog, QFormLayout, QListWidget
 )
@@ -15,7 +15,7 @@ import time
 from pcss_llm_app.config import ConfigManager
 from pcss_llm_app.core.api_client import PcssApiClient
 from pcss_llm_app.core.database import DatabaseManager
-from pcss_llm_app.core.database import DatabaseManager
+
 from pcss_llm_app.core.file_manager import FileManager
 from pcss_llm_app.core.agent_engine import LangChainAgentEngine
 
@@ -237,6 +237,7 @@ class MainWindow(QMainWindow):
         # Controls
         controls_layout = QHBoxLayout()
         self.model_combo = QComboBox()
+        self.model_combo.currentTextChanged.connect(self.on_model_changed)
         controls_layout.addWidget(QLabel("Model:"))
         controls_layout.addWidget(self.model_combo)
         
@@ -251,8 +252,9 @@ class MainWindow(QMainWindow):
         layout.addLayout(controls_layout)
         
         # Chat Display
-        self.chat_display = QTextEdit()
+        self.chat_display = QTextBrowser()
         self.chat_display.setReadOnly(True)
+        self.chat_display.setOpenExternalLinks(True)
         layout.addWidget(self.chat_display)
         
         # Input
@@ -297,8 +299,9 @@ class MainWindow(QMainWindow):
         # Agent Chat Display and Console Splitter
         self.agent_splitter = QSplitter(Qt.Vertical)
         
-        self.agent_display = QTextEdit()
+        self.agent_display = QTextBrowser()
         self.agent_display.setReadOnly(True)
+        self.agent_display.setOpenExternalLinks(True)
         self.agent_splitter.addWidget(self.agent_display)
         
         # Console
@@ -354,6 +357,19 @@ class MainWindow(QMainWindow):
                 self.model_combo.addItem("bielik_11b")
             else:
                 self.model_combo.addItems(models)
+
+
+    def on_model_changed(self, text):
+        # Reset Chat
+        self.start_new_chat()
+        
+        # Reset Agent
+        self.agent_history = []
+        self.current_agent_conversation_id = None
+        self.agent_display.clear()
+        self.agent_display.append("<b>System:</b> Model changed. Please re-initialize Assistant.<br>")
+        self.agent_engine = None # Force re-creation with new model
+        self.agent_status_label.setText("Model Changed")
 
     def open_settings(self):
         # Get current models from main combo
@@ -433,7 +449,8 @@ class MainWindow(QMainWindow):
             self.agent_status_label.setText("Initializing Agent...")
             # We initialize the engine. Note: name/instr are effectively system prompts/config
             # For this Phase, we just rely on standard prompt + tools, but we could inject instr.
-            self.agent_engine = LangChainAgentEngine(api_key, model, workspace)
+            self.agent_engine = LangChainAgentEngine(api_key, model, workspace, log_callback=self.agent_logger.log_message.emit)
+
             
             self.agent_status_label.setText("Agent Ready")
             self.agent_history = [] # Reset history

@@ -10,3 +10,9 @@ venv/
 settings.json
 .vscode/
 .idea/
+
+# Temporary / User files
+TOOLS_GUIDE.html
+TOOLS_GUIDE_files/
+zadanie
+openapi.json

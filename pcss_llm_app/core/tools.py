@@ -280,9 +280,62 @@ class VisionTools:
             )
         ]
 
+
 class WebSearchTools:
-    def __init__(self):
-        pass
+    def __init__(self, api_key: str = None, model_name: str = "gpt-4o", base_url: str = "https://llm.hpc.pcss.pl/v1"):
+        self.api_key = api_key
+        self.model_name = model_name
+        self.base_url = base_url
+        self.client = None
+        if self.api_key:
+             try:
+                 self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
+             except Exception:
+                 pass
+
+    def get_tools(self):
+        return [
+            StructuredTool.from_function(
+                func=self.search_web,
+                name="search_web",
+                description="Performs a web search using DuckDuckGo. Use this to find current events, specific facts, or data not in your training set. Input: query string."
+            )
+        ]
+
+    def _refine_query(self, query: str) -> str:
+        """
+        Uses LLM to refine the search query for better results.
+        """
+        if not self.client:
+            return query
+            
+        try:
+            prompt = f"""You are a Search Engine Expert. Transform the following user query into a highly effective DuckDuckGo search string.
+User Query: "{query}"
+
+Guidelines:
+1. Extract core keywords.
+2. If looking for a definition, DO NOT exclude dictionaries.
+3. If looking for specific data (prices, weather), exclude generic sites like dictionaries using -site:operator.
+4. Use standard search operators (site:, ", -) effectively.
+5. Return ONLY the optimized query string, nothing else.
+
+Optimized Query:"""
+            
+            response = self.client.chat.completions.create(
+                model=self.model_name, # Use the configured model
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=60,
+                temperature=0.3
+            )
+            refined = response.choices[0].message.content.strip()
+            # Remove quotes if present
+            if (refined.startswith('"') and refined.endswith('"')):
+                refined = refined[1:-1]
+            return refined
+        except Exception as e:
+            print(f"Query refinement failed: {e}")
+            return query
 
     def search_web(self, query: str) -> str:
         """
@@ -291,13 +344,25 @@ class WebSearchTools:
             query: The search query (e.g., 'current weather in Poznan', 'latest AI news').
         """
         try:
+            # Smart Refinement
+            final_query = self._refine_query(query)
+            print(f"DEBUG: Refined Query: '{query}' -> '{final_query}'")
+
+            # Fallback Filter (if refinement failed or LLM didn't catch it)
+            # Only apply if query contains common trigger words
+            should_filter = any(w in query.lower() for w in ["aktualny", "znaczenie", "co to"])
+            
             results = []
             with DDGS() as ddgs:
-                # Get up to 5 results
-                ddgs_gen = ddgs.text(query, region="pl-pl", max_results=5)
+                # Get up to 10 results
+                ddgs_gen = ddgs.text(final_query, region="pl-pl", max_results=10)
                 if ddgs_gen:
                     for r in ddgs_gen:
-                         results.append(f"Title: {r.get('title')}\nLink: {r.get('href')}\nSnippet: {r.get('body')}\n")
+                         link = r.get('href', '')
+                         if should_filter:
+                             if any(x in link for x in ['sjp.pwn.pl', 'synonim.net', 'wiktionary.org', 'diki.pl', 'dobryslownik.pl', 'synonimy.pl', 'sjp.pl']):
+                                 continue
+                         results.append(f"Title: {r.get('title')}\nLink: {link}\nSnippet: {r.get('body')}\n")
             
             if not results:
                 return "No results found."

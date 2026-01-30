@@ -55,7 +55,11 @@ class LangChainAgentEngine:
         self.tools.extend(vision_tools.get_tools())
 
         # Add Web Search Tools
-        web_search_tools = WebSearchTools()
+        web_search_tools = WebSearchTools(
+            api_key=self.api_key, 
+            model_name=self.model_name,
+            base_url="https://llm.hpc.pcss.pl/v1"
+        )
         self.tools.extend(web_search_tools.get_tools())
 
 
@@ -212,12 +216,12 @@ Begin!
             
             # Invoke LLM with stop sequence
             self._log("Thinking...")
-            # print(f"--- Step {i} ---")
+            print(f"--- Step {i} ---")
             # print(f"Prompt end:\n{prompt[-500:]}") 
             
             response = self.llm.invoke(prompt, stop=["Observation:"])
             output = response.content
-            # print(f"LLM Output:\n{output}\n----------------")
+            print(f"LLM Output:\n{output}\n----------------")
             self._log(f"Agent Thought:\n{output}")
             
             prompt += output
@@ -281,7 +285,7 @@ Begin!
 
                 # Execute Tool
                 if action in self.tool_map:
-                    # print(f"DEBUG: Found tool {action}", flush=True)
+                    print(f"DEBUG: Found tool {action}", flush=True)
                     self._log(f"Executing Tool: {action}")
                     tool = self.tool_map[action]
                     try:
@@ -294,7 +298,7 @@ Begin!
                             observation = tool(tool_args)
                         self._log(f"Observation: {observation}")
                     except Exception as e:
-                        # print(f"DEBUG: Exception in tool exec: {e}", flush=True)
+                        print(f"DEBUG: Exception in tool exec: {e}", flush=True)
                         observation = f"Error executing {action}: {e}"
                         self._log(f"Error: {observation}")
                 else:
