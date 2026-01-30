@@ -1,6 +1,6 @@
 import sys
 from PySide6.QtCore import Qt, QSize, QTimer, QThread, Signal, QObject, QEvent
-from PySide6.QtGui import QAction, QIcon, QTextCursor
+from PySide6.QtGui import QAction, QIcon, QTextCursor, QPixmap
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QTextEdit, QLineEdit, QPushButton, QLabel, 
@@ -136,9 +136,15 @@ class AgentWorker(QThread):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("PCSS LLM Client (Bielik)")
-        self.resize(1000, 700)
+        self.setWindowTitle("PCSS LLM Client")
+        self.setGeometry(100, 100, 1200, 800)
         
+        # Set App Icon
+        logo_path = os.path.join(os.path.dirname(__file__), "..", "..", "resources", "logo.png")
+        if os.path.exists(logo_path):
+             self.setWindowIcon(QIcon(logo_path))
+
+        # Main Layout      
         self.config = ConfigManager()
         self.api = PcssApiClient(self.config)
         self.db = DatabaseManager()

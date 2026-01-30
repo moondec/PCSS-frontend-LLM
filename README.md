@@ -1,5 +1,7 @@
 # PCSS LLM Client (Bielik)
 
+<img src="resources/logo.png" align="right" width="120" />
+
 A Python desktop application (GUI) for interacting with the PCSS LLM Service, built with **PySide6 (Qt)** and **LangChain**.
 
 ## ✨ Key Features
