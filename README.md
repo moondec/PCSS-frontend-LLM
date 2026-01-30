@@ -1,6 +1,6 @@
 # PCSS LLM Client (Bielik)
 
-<img src="resources/logo.png" align="right" width="120" />
+<img src="resources/logo.png" align="right" width="240" />
 
 A Python desktop application (GUI) for interacting with the PCSS LLM Service, built with **PySide6 (Qt)** and **LangChain**.
 
@@ -32,6 +32,19 @@ The application features a powerful Agent capable of performing tasks on your lo
 -   **Local Data**: All history and settings are stored locally.
 -   **Documentation**: See [MODEL_GUIDE.md](MODEL_GUIDE.md) and [TOOLS_GUIDE.md](TOOLS_GUIDE.md).
 
+### 4. 🤖 Chat Mode vs. Agent Mode (Important!)
+The application has two distinct tabs:
+
+| Feature | **Chat Tab** | **Agent Mode Tab** |
+| :--- | :--- | :--- |
+| **Primary Use** | Conversation, Brainstorming, Q&A | **Executing Tasks**, File Operations, Research |
+| **Tools Access** | ❌ No Tools | ✅ **Has Tools** (Internet, Vision, Files, Pandoc) |
+| **Internet** | ❌ Offline (Knowledge cutoff) | ✅ **Online** (via DuckDuckGo) |
+| **Vision** | ❌ Text only | ✅ **Vision** (via GPT-4o proxy) |
+
+> [!IMPORTANT]
+> If you want the model to **search the web**, **read files**, or **analyze images**, you MUST use the **Agent Mode** tab. The standard Chat tab is for pure text conversation only.
+
 ## 🛠️ Installation
 
 ### Prerequisites
@@ -42,7 +55,7 @@ The application features a powerful Agent capable of performing tasks on your lo
 
 1.  **Clone the Repository**
     ```bash
-    git clone <repository_url>
+    git clone https://github.com/moondec/PCSS-frontend-LLM.git
     cd Bielik
     ```
 

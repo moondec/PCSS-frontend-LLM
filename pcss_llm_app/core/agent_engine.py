@@ -1,6 +1,7 @@
 from typing import List, Dict, Any
 import re
 import json
+import datetime
 from langchain_openai import ChatOpenAI
 from langchain_community.agent_toolkits import FileManagementToolkit
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
@@ -70,7 +71,11 @@ class LangChainAgentEngine:
         tool_names = list(self.tool_map.keys())
         tool_descriptions = "\n".join([f"{t.name}: {t.description}" for t in self.tools])
         
+        current_date = datetime.datetime.now().strftime("%Y-%m-%d")
+        
         system_prompt = f"""Answer the following questions as best you can. You have access to the following tools:
+
+Current Date: {current_date}
 
 {tool_descriptions}
 
@@ -171,9 +176,9 @@ Example for ocr_image: {{"file_path": "scan.png"}}
 Example for convert_document: {{"source_path": "report.html", "output_format": "docx"}}
 Example for analyze_image: {{"file_path": "chart.png", "prompt": "What is the trend?"}}
 Example for search_web: {{"query": "current weather in Poznan"}}
+IMPORTANT: The user does NOT know what happened after your training data cutoff. You MUST use 'search_web' tools for any query about current events, news, or specific technical documentation.
 IMPORTANT: For best results with complex documents (tables, headers), write the content to an HTML file first using write_file, then use convert_document to transform it to PDF or DOCX.
 IMPORTANT: Use 'ocr_image' for simple text extraction. Use 'analyze_image' for understanding layouts, charts, or describing scenes.
-IMPORTANT: Use 'search_web' to verify facts or find up-to-date information.
 Observation: the result of the action
 ... (this Thought/Action/Action Input/Observation can repeat N times)
 Thought: I now know the final answer
@@ -221,6 +226,33 @@ Begin!
             # We look for the last occurrence in the output (should be only one due to stop)
             pattern = r"Action:\s*(.+?)\nAction Input:\s*(.+)"
             match = re.search(pattern, output, re.DOTALL)
+            
+            # Fallback for "function call" style (common in some PCSS models)
+            if not match:
+                 # Look for: function call {"name": "toolsname", "arguments": {...}}
+                 json_pattern = r'function call\s*({.*?})'
+                 json_match = re.search(json_pattern, output, re.DOTALL)
+                 if json_match:
+                     try:
+                         func_data = json.loads(json_match.group(1))
+                         if "name" in func_data:
+                             action = func_data["name"]
+                             # Handle arguments: could be dict or string
+                             args = func_data.get("arguments", {})
+                             if isinstance(args, dict):
+                                 action_input = json.dumps(args)
+                             else:
+                                 action_input = str(args)
+                             match = True # Flag as found
+                     except Exception:
+                         pass
+
+            if match:
+                if not 'action' in locals(): # If standard ReAct match
+                     action = match.group(1).strip()
+                     action_input = match.group(2).strip()
+                
+                # Sanitize input: remove surrounding quotes if present
             
             if match:
                 action = match.group(1).strip()
