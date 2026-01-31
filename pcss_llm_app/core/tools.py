@@ -459,15 +459,15 @@ class PandocTools:
 
 
 class VisionTools:
-    def __init__(self, root_dir: str, api_key: str):
+    def __init__(self, root_dir: str, api_key: str, model_name: str = None):
         self.root_dir = root_dir
         self.api_key = api_key
-        # Always use GPT-4o for vision tasks, regardless of main agent model
+        # Use provided model or fallback to a vision-capable model
         self.client = OpenAI(
             api_key=api_key,
             base_url="https://llm.hpc.pcss.pl/v1"
         )
-        self.model = "gpt-4o"
+        self.model = model_name or "Bielik-11B-v2.3-Instruct"  # Use user's selected model
 
     def _get_full_path(self, file_path: str) -> str:
         return os.path.join(self.root_dir, file_path)

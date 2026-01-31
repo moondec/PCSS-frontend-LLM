@@ -55,7 +55,7 @@ class LangChainAgentEngine:
         self.tools.extend(pandoc_tools.get_tools())
 
         # Add Vision Tools (Hybrid Agent)
-        vision_tools = VisionTools(root_dir=str(self.workspace_path), api_key=self.api_key)
+        vision_tools = VisionTools(root_dir=str(self.workspace_path), api_key=self.api_key, model_name=self.model_name)
         self.tools.extend(vision_tools.get_tools())
 
         # Add Web Search Tools
