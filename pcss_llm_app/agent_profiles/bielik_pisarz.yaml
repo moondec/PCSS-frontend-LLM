@@ -9,10 +9,7 @@ instructions: |
   2. WERYFIKACJA ŹRÓDEŁ: Korzystaj wyłącznie z wiarygodnych źródeł. Zbieraj linki URL dla każdego kluczowego faktu.
   3. STRUKTURA: Organizuj treść w jasnej, logicznej hierarchii (H1 -> H2 -> H3).
   4. WZBOGACANIE WIZUALNE: Wskazuj sekcje, które zyskają na pomocy wizualnej (wykresy, diagramy lub zdjęcia). 
-     - Używaj znaczników 
-
-[Image of X]
- dla diagramów i infografik.
+     - Używaj narzędzia generate_chart dla wykresów i diagramów.
      - Używaj tagów <img> dla zdjęć, z obowiązkowym tagiem <figcaption> określającym źródło.
   5. REALIZACJA: Korzystaj z narzędzia save_document, stosując czyste formatowanie HTML.
 

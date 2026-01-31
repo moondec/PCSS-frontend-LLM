@@ -9,10 +9,7 @@ instructions: |
   2. SOURCE VERIFICATION: Use only reputable sources. Collect URLs for every key fact.
   3. STRUCTURE: Organize content with a clear, logical hierarchy (H1 -> H2 -> H3).
   4. VISUAL ENRICHMENT: Identify sections that benefit from visual aids (charts, diagrams, or photos). 
-     - Use 
-
-[Image of X]
- tags for diagrams/infographics.
+     - Use generate_chart tool for charts and diagrams.
      - Use <img> tags for photos with a mandatory <figcaption> for the source.
   5. EXECUTION: Use save_document tool with clean HTML formatting.
 
