@@ -22,12 +22,14 @@ class LangChainAgentEngine:
             self.log_callback(message)
 
     def _initialize_agent(self):
-        # 1. Initialize LLM
+        # 1. Initialize LLM with performance optimizations
         self.llm = ChatOpenAI(
             api_key=self.api_key,
             base_url="https://llm.hpc.pcss.pl/v1",
             model=self.model_name,
-            temperature=0
+            temperature=0,
+            max_tokens=2048,  # Limit response length for faster generation
+            request_timeout=120  # 2 minute timeout
         )
 
         # 2. Initialize Tools
@@ -182,52 +184,28 @@ Begin!
         
         current_date = datetime.datetime.now().strftime("%Y-%m-%d")
 
-        system_template = f"""Answer the following questions as best you can. You have access to the following tools:
+        system_template = f"""You are an AI assistant with tools. Date: {current_date}
 
-**SYSTEM DATE: {current_date}** - This is the ACTUAL current date. Trust this value, NOT your training data.
-
+Tools:
 {tool_descriptions}
 
-Use the following format:
+Format:
+Question: [user's question]
+Thought: [your reasoning]
+Action: [one of: {tool_names}]
+Action Input: [JSON for multi-arg tools, string for single-arg]
+Observation: [result]
+... (repeat as needed)
+Thought: I have the answer
+Final Answer: [your response]
 
-Question: the input question you must answer
-Thought: you should always think about what to do
-Action: the action to take, should be one of [{tool_names}]
-Action Input: the input to the action. If the action requires multiple arguments (like 'write_file', 'write_docx'), provide a JSON string.
-Example for write_file: {{"file_path": "example.txt", "text": "Hello World"}}
-Example for write_docx: {{"file_path": "report.docx", "text": "Title\\n\\nContent paragraph."}}
-Example for ocr_image: {{"file_path": "scan.png"}}
-Example for convert_document: {{"source_path": "report.html", "output_format": "docx"}}
-Example for analyze_image: {{"file_path": "chart.png", "prompt": "What is the trend?"}}
-Example for search_web: {{"query": "news Poland today"}}
-Example for visit_page: "https://www.rmf24.pl/fakty"
-Observation: the result of the action
-... (this Thought/Action/Action Input/Observation can repeat N times)
-Thought: I now know the final answer
-Final Answer: the final answer to the original input question
+Rules:
+- Use search_news for current events, search_web for general info
+- Use visit_page to read full content from URLs (2-3 max)
+- For documents: save_document with HTML content
+- Be efficient - stop when you have enough information
 
-**CRITICAL INSTRUCTIONS:**
-1. TODAY IS {current_date}. This is NOT the future. Your training data is outdated.
-
-2. **RESEARCH WORKFLOW:**
-   - For NEWS/CURRENT EVENTS: Use `search_news` first (it returns dated articles)
-   - For GENERAL INFO (definitions, how-to): Use `search_web`
-   - THEN use `visit_page` on 2-3 BEST links to read full content
-   - STOP when you have enough information - do NOT over-research
-
-3. **WHEN TO STOP RESEARCHING:**
-   - You have 2-3 good sources that answer the question
-   - You can synthesize a comprehensive answer
-   - DO NOT keep searching if you already have what you need
-
-4. DO NOT ask the user to visit websites themselves. YOU must use `visit_page`.
-
-5. When asked to SAVE to PDF, DOCX, or formatted documents:
-   - Use `save_document` with HTML-formatted content (h1, h2, p, ul, li, b, i tags)
-   - Example: save_document({{"file_path": "report.pdf", "content": "<h1>Title</h1><p>Content...</p>", "title": "Report Title"}})
-
-{f"**USER DEFINED INSTRUCTIONS:**" + chr(10) + self.custom_instructions if self.custom_instructions else ""}
-
+{f"User Instructions: " + self.custom_instructions if self.custom_instructions else ""}
 Begin!
 """
         # History
@@ -244,7 +222,7 @@ Begin!
 
         prompt = f"{system_template}\n{history_text}\nQuestion: {input_text}\nThought:"
         
-        max_steps = 15
+        max_steps = 8  # Reduced for faster response
         
         for i in range(max_steps):
             # Reset variables at start of each iteration to prevent stale values
