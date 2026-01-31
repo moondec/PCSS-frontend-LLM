@@ -484,7 +484,7 @@ class MainWindow(QMainWindow):
         input_layout.addWidget(self.agent_input)
         
         self.agent_send_btn = QPushButton("Send to Agent")
-        self.agent_send_btn.setFixedSize(100, 80)
+        self.agent_send_btn.setFixedSize(120, 80)
         self.agent_send_btn.clicked.connect(self.send_to_agent)
         input_layout.addWidget(self.agent_send_btn)
         
