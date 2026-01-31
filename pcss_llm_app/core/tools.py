@@ -98,6 +98,7 @@ class DocumentTools:
         """
         Saves formatted content to a document file. Supports: .pdf, .docx, .html, .txt
         For PDF/DOCX: automatically creates HTML first, then converts via Pandoc.
+        Remote images are automatically downloaded and embedded.
         Args:
             file_path: Target file name with extension (e.g., 'report.pdf', 'summary.docx').
             content: HTML-formatted content (use <h1>, <p>, <ul>, <li>, <b>, <i> tags for formatting).
@@ -105,9 +106,63 @@ class DocumentTools:
         """
         import subprocess
         import tempfile
+        import re
+        import requests
+        import hashlib
         
         ext = os.path.splitext(file_path)[1].lower()
         full_path = self._get_full_path(file_path)
+        
+        # Helper function to download remote images and replace with local paths
+        def download_and_embed_images(html: str, temp_dir: str) -> str:
+            """Download remote images and replace URLs with local file paths."""
+            img_pattern = r'<img\s+[^>]*src=["\']([^"\']+)["\'][^>]*>'
+            
+            def replace_img(match):
+                img_tag = match.group(0)
+                src = match.group(1)
+                
+                # Skip local/relative paths and data URIs
+                if not src.startswith(('http://', 'https://')) or src.startswith('data:'):
+                    return img_tag
+                
+                try:
+                    # Download image
+                    response = requests.get(src, timeout=15, headers={
+                        'User-Agent': 'Mozilla/5.0 (compatible; DocumentGenerator/1.0)'
+                    })
+                    response.raise_for_status()
+                    
+                    # Determine file extension from content-type or URL
+                    content_type = response.headers.get('content-type', '')
+                    if 'png' in content_type:
+                        img_ext = '.png'
+                    elif 'gif' in content_type:
+                        img_ext = '.gif'
+                    elif 'webp' in content_type:
+                        img_ext = '.webp'
+                    else:
+                        img_ext = '.jpg'
+                    
+                    # Create unique filename
+                    img_hash = hashlib.md5(src.encode()).hexdigest()[:12]
+                    local_filename = f"img_{img_hash}{img_ext}"
+                    local_path = os.path.join(temp_dir, local_filename)
+                    
+                    # Save image
+                    with open(local_path, 'wb') as img_file:
+                        img_file.write(response.content)
+                    
+                    # Replace src in tag
+                    new_tag = img_tag.replace(src, local_path)
+                    return new_tag
+                    
+                except Exception as e:
+                    # If download fails, keep original and add alt text
+                    print(f"Warning: Could not download image {src}: {e}")
+                    return img_tag
+            
+            return re.sub(img_pattern, replace_img, html, flags=re.IGNORECASE)
         
         # Wrap content in proper HTML structure if not already
         if not content.strip().startswith('<!DOCTYPE') and not content.strip().startswith('<html'):
@@ -123,6 +178,7 @@ class DocumentTools:
         ul, ol {{ margin-left: 20px; }}
         li {{ margin-bottom: 10px; }}
         .source {{ font-style: italic; color: #666; }}
+        img {{ max-width: 100%; height: auto; }}
     </style>
 </head>
 <body>
@@ -151,10 +207,16 @@ class DocumentTools:
             
             # For PDF and DOCX: create temp HTML, then convert
             if ext in ['.pdf', '.docx']:
+                # Create temp directory for images
+                temp_img_dir = tempfile.mkdtemp(prefix='docgen_images_')
+                
+                # Download remote images and get modified HTML
+                html_with_local_images = download_and_embed_images(html_content, temp_img_dir)
+                
                 # Create temp HTML file
                 html_path = full_path.replace(ext, '.html')
                 with open(html_path, 'w', encoding='utf-8') as f:
-                    f.write(html_content)
+                    f.write(html_with_local_images)
                 
                 # Try conversion
                 if ext == '.pdf':
