@@ -726,7 +726,11 @@ class MainWindow(QMainWindow):
         """Stop the current chat request."""
         if self.chat_worker and self.chat_worker.isRunning():
             self.chat_worker.cancel()
+            self.chat_worker.terminate()  # Force terminate the thread
+            self.chat_worker.wait(1000)   # Wait up to 1 second for cleanup
             self.append_log("User cancelled chat request.")
+            self._append_message("System", "⚠️ Request cancelled by user.")
+            self._reset_chat_ui()
     
     def _reset_chat_ui(self):
         """Reset chat UI after response/error/cancel."""
@@ -938,8 +942,11 @@ class MainWindow(QMainWindow):
         """Stop the current agent task."""
         if self.agent_worker and self.agent_worker.isRunning():
             self.agent_worker.cancel()
-            self.agent_status_label.setText("Cancelling...")
+            self.agent_worker.terminate()  # Force terminate the thread
+            self.agent_worker.wait(1000)   # Wait up to 1 second for cleanup
             self.append_log("User cancelled agent task.")
+            self.agent_display.append("<b>System:</b> ⚠️ Agent task cancelled by user.<br>")
+            self._reset_agent_ui()
     
     def _reset_agent_ui(self):
         """Reset agent UI after response/error/cancel."""
