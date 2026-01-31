@@ -95,15 +95,25 @@ class ChatWorker(QThread):
     finished = Signal(str)
     error = Signal(str)
     log_message = Signal(str)
+    cancelled = Signal()  # Signal when cancelled
 
     def __init__(self, api_client, model, messages):
         super().__init__()
         self.api_client = api_client
         self.model = model
         self.messages = messages
+        self._is_cancelled = False
+
+    def cancel(self):
+        """Request cancellation of the worker."""
+        self._is_cancelled = True
 
     def run(self):
         try:
+            if self._is_cancelled:
+                self.cancelled.emit()
+                return
+                
             self.log_message.emit(f"ChatWorker: Sending request to model '{self.model}'...")
             self.log_message.emit(f"ChatWorker: Input messages: {len(self.messages)}")
             
@@ -111,14 +121,20 @@ class ChatWorker(QThread):
                 model=self.model,
                 messages=self.messages
             )
+            
+            if self._is_cancelled:
+                self.cancelled.emit()
+                return
+                
             content = response.choices[0].message.content
             self.log_message.emit("ChatWorker: Response received.")
             self.log_message.emit(f"ChatWorker: Response length: {len(content)} chars.")
             
             self.finished.emit(content)
         except Exception as e:
-            self.log_message.emit(f"ChatWorker Error: {str(e)}")
-            self.error.emit(str(e))
+            if not self._is_cancelled:
+                self.log_message.emit(f"ChatWorker Error: {str(e)}")
+                self.error.emit(str(e))
 
 class AgentWorker(QThread):
     """
@@ -127,22 +143,41 @@ class AgentWorker(QThread):
     finished = Signal(str)
     status_update = Signal(str)
     error = Signal(str)
+    cancelled = Signal()  # Signal when cancelled
 
     def __init__(self, agent_engine, text, chat_history=None):
         super().__init__()
         self.agent_engine = agent_engine
         self.text = text
         self.chat_history = chat_history if chat_history else []
+        self._is_cancelled = False
+
+    def cancel(self):
+        """Request cancellation of the worker."""
+        self._is_cancelled = True
+        # Also set flag on the agent engine if possible
+        if hasattr(self.agent_engine, 'cancel'):
+            self.agent_engine.cancel()
 
     def run(self):
         try:
+            if self._is_cancelled:
+                self.cancelled.emit()
+                return
+                
             self.status_update.emit("Agent thinking...")
             # Run the agent (synchronous call in thread)
             response = self.agent_engine.run(self.text, self.chat_history)
+            
+            if self._is_cancelled:
+                self.cancelled.emit()
+                return
+                
             self.finished.emit(response)
                 
         except Exception as e:
-            self.error.emit(str(e))
+            if not self._is_cancelled:
+                self.error.emit(str(e))
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -172,6 +207,10 @@ class MainWindow(QMainWindow):
         # Agent State (LangChain)
         self.agent_engine = None
         self.agent_history = []
+        
+        # Worker instances for cancellation
+        self.chat_worker = None
+        self.agent_worker = None
 
         self._init_ui()
         
@@ -301,10 +340,17 @@ class MainWindow(QMainWindow):
         self.message_input.installEventFilter(self)
         input_layout.addWidget(self.message_input)
         
-        send_btn = QPushButton("Send")
-        send_btn.setFixedSize(80, 80)
-        send_btn.clicked.connect(self.send_message)
-        input_layout.addWidget(send_btn)
+        self.chat_send_btn = QPushButton("Send")
+        self.chat_send_btn.setFixedSize(80, 80)
+        self.chat_send_btn.clicked.connect(self.send_message)
+        input_layout.addWidget(self.chat_send_btn)
+        
+        self.chat_stop_btn = QPushButton("⬛ Stop")
+        self.chat_stop_btn.setFixedSize(80, 80)
+        self.chat_stop_btn.clicked.connect(self.stop_chat)
+        self.chat_stop_btn.setEnabled(False)
+        self.chat_stop_btn.setStyleSheet("QPushButton:enabled { background-color: #d32f2f; color: white; }")
+        input_layout.addWidget(self.chat_stop_btn)
         
         layout.addLayout(input_layout)
 
@@ -387,10 +433,17 @@ class MainWindow(QMainWindow):
         self.agent_input.installEventFilter(self)
         input_layout.addWidget(self.agent_input)
         
-        send_btn = QPushButton("Send to Agent")
-        send_btn.setFixedSize(100, 80)
-        send_btn.clicked.connect(self.send_to_agent)
-        input_layout.addWidget(send_btn)
+        self.agent_send_btn = QPushButton("Send to Agent")
+        self.agent_send_btn.setFixedSize(100, 80)
+        self.agent_send_btn.clicked.connect(self.send_to_agent)
+        input_layout.addWidget(self.agent_send_btn)
+        
+        self.agent_stop_btn = QPushButton("⬛ Stop")
+        self.agent_stop_btn.setFixedSize(80, 80)
+        self.agent_stop_btn.clicked.connect(self.stop_agent)
+        self.agent_stop_btn.setEnabled(False)
+        self.agent_stop_btn.setStyleSheet("QPushButton:enabled { background-color: #d32f2f; color: white; }")
+        input_layout.addWidget(self.agent_stop_btn)
         
         agent_layout.addLayout(input_layout)
 
@@ -462,24 +515,46 @@ class MainWindow(QMainWindow):
         self.chat_history.append({"role": "user", "content": text})
         self.db.add_message(self.current_conversation_id, "user", text)
 
-        self.worker = ChatWorker(self.api, model, self.chat_history)
-        self.worker.finished.connect(self.handle_response)
-        self.worker.error.connect(self.handle_error)
-        self.worker.log_message.connect(self.append_log) # Connect logging
-        self.worker.start()
+        self.chat_worker = ChatWorker(self.api, model, self.chat_history)
+        self.chat_worker.finished.connect(self.handle_response)
+        self.chat_worker.error.connect(self.handle_error)
+        self.chat_worker.cancelled.connect(self.handle_chat_cancelled)
+        self.chat_worker.log_message.connect(self.append_log)
+        self.chat_worker.start()
         
+        # UI state: disable input, enable Stop
         self.message_input.setEnabled(False)
+        self.chat_send_btn.setEnabled(False)
+        self.chat_stop_btn.setEnabled(True)
 
     def handle_response(self, content):
         self._append_message("AI", content)
         self.chat_history.append({"role": "assistant", "content": content})
         self.db.add_message(self.current_conversation_id, "assistant", content)
-        self.message_input.setEnabled(True)
-        self.message_input.setFocus()
+        self._reset_chat_ui()
 
     def handle_error(self, err_msg):
         QMessageBox.critical(self, "API Error", err_msg)
+        self._reset_chat_ui()
+
+    def handle_chat_cancelled(self):
+        """Handle chat worker cancellation."""
+        self._append_message("System", "⚠️ Request cancelled by user.")
+        self._reset_chat_ui()
+    
+    def stop_chat(self):
+        """Stop the current chat request."""
+        if self.chat_worker and self.chat_worker.isRunning():
+            self.chat_worker.cancel()
+            self.append_log("User cancelled chat request.")
+    
+    def _reset_chat_ui(self):
+        """Reset chat UI after response/error/cancel."""
         self.message_input.setEnabled(True)
+        self.chat_send_btn.setEnabled(True)
+        self.chat_stop_btn.setEnabled(False)
+        self.message_input.setFocus()
+        self.chat_worker = None
 
     def _append_message(self, role, text):
         html = markdown.markdown(text)
@@ -621,7 +696,12 @@ class MainWindow(QMainWindow):
         self.agent_worker.status_update.connect(self.update_agent_status)
         self.agent_worker.finished.connect(self.handle_agent_response)
         self.agent_worker.error.connect(self.handle_agent_error)
+        self.agent_worker.cancelled.connect(self.handle_agent_cancelled)
+        
+        # UI state: disable input, enable Stop
         self.agent_input.setEnabled(False)
+        self.agent_send_btn.setEnabled(False)
+        self.agent_stop_btn.setEnabled(True)
         self.agent_worker.start()
 
     def update_agent_status(self, status):
@@ -630,30 +710,19 @@ class MainWindow(QMainWindow):
     def handle_agent_response(self, content):
         html = markdown.markdown(content)
         self.agent_display.append(f"<b>Agent:</b> {html}<br>")
-        self.agent_status_label.setText("Ready")
-        self.agent_input.setEnabled(True)
-        self.agent_input.setFocus()
         
         # Update history
-        # Since I'm managing history manually to pass to agent, I should append here.
-        # Although AgentExecutor returns output, it doesn't return the updated "chat_history" list automatically unless configured.
-        # I need to append input and output to self.agent_history.
-        # Input was self.agent_worker.text (need to store it or access it)
-        input_text = self.agent_worker.text
-        
-        from langchain_core.messages import HumanMessage, AIMessage
-        self.agent_history.append(HumanMessage(content=input_text))
-        self.agent_history.append(AIMessage(content=content))
-        self.agent_status_label.setText("Ready")
-        self.agent_input.setEnabled(True)
-        self.agent_input.setFocus()
-
-        self.agent_input.setEnabled(True)
-        self.agent_input.setFocus()
+        if self.agent_worker:
+            input_text = self.agent_worker.text
+            from langchain_core.messages import HumanMessage, AIMessage
+            self.agent_history.append(HumanMessage(content=input_text))
+            self.agent_history.append(AIMessage(content=content))
         
         # Persist Agent Response
         if self.current_agent_conversation_id:
             self.db.add_message(self.current_agent_conversation_id, "assistant", content)
+        
+        self._reset_agent_ui()
 
     def toggle_console(self, checked):
         # Sync buttons
@@ -678,7 +747,28 @@ class MainWindow(QMainWindow):
     def handle_agent_error(self, err):
         QMessageBox.critical(self, "Agent Error", err)
         self.agent_status_label.setText("Error")
+        self._reset_agent_ui()
+
+    def handle_agent_cancelled(self):
+        """Handle agent worker cancellation."""
+        self.agent_display.append("<b>System:</b> ⚠️ Agent task cancelled by user.<br>")
+        self._reset_agent_ui()
+    
+    def stop_agent(self):
+        """Stop the current agent task."""
+        if self.agent_worker and self.agent_worker.isRunning():
+            self.agent_worker.cancel()
+            self.agent_status_label.setText("Cancelling...")
+            self.append_log("User cancelled agent task.")
+    
+    def _reset_agent_ui(self):
+        """Reset agent UI after response/error/cancel."""
+        self.agent_status_label.setText("Ready")
         self.agent_input.setEnabled(True)
+        self.agent_send_btn.setEnabled(True)
+        self.agent_stop_btn.setEnabled(False)
+        self.agent_input.setFocus()
+        self.agent_worker = None
 
     # --- Common Methods ---
     def refresh_history(self):
