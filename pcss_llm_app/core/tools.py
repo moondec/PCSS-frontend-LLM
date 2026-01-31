@@ -759,11 +759,30 @@ class WebSearchTools:
                 "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
                 "Accept-Language": "pl-PL,pl;q=0.9,en;q=0.8",
+                "Accept-Charset": "utf-8, iso-8859-2;q=0.5",
             }
             
             response = requests.get(url, headers=headers, timeout=15)
             response.raise_for_status()
-            response.encoding = response.apparent_encoding or 'utf-8'
+            
+            # Better encoding detection
+            # 1. Check Content-Type header for charset
+            content_type = response.headers.get('Content-Type', '')
+            if 'charset=' in content_type.lower():
+                declared_encoding = content_type.split('charset=')[-1].split(';')[0].strip()
+                response.encoding = declared_encoding
+            # 2. Check HTML meta charset tag
+            elif b'charset=' in response.content[:1000].lower():
+                # Try to extract from content
+                import re
+                match = re.search(rb'charset=["\']?([^"\'\s>]+)', response.content[:1000], re.IGNORECASE)
+                if match:
+                    response.encoding = match.group(1).decode('ascii', errors='ignore')
+                else:
+                    response.encoding = 'utf-8'
+            # 3. Default to UTF-8 (most common)
+            else:
+                response.encoding = 'utf-8'
             
             # Use readability to extract main content
             doc = Document(response.text)
