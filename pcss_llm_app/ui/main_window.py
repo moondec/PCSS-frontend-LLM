@@ -1,12 +1,14 @@
 import sys
 import os
+import glob
+import yaml
 from PySide6.QtCore import Qt, QSize, QTimer, QThread, Signal, QObject, QEvent
 from PySide6.QtGui import QAction, QIcon, QTextCursor, QPixmap
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QTextEdit, QTextBrowser, QLineEdit, QPushButton, QLabel, 
     QComboBox, QSplitter, QFrame, QScrollArea, QSizePolicy,
-    QApplication, QTabWidget, QFileDialog, QMessageBox, QDialog, QFormLayout, QListWidget
+    QApplication, QTabWidget, QFileDialog, QMessageBox, QDialog, QFormLayout, QListWidget, QMenu
 )
 import datetime
 import markdown
@@ -309,16 +311,34 @@ class MainWindow(QMainWindow):
     def _init_agent_tab(self):
         agent_layout = QVBoxLayout(self.agent_tab) # Renamed to avoid conflict with 'layout'
         
-        # Config Area
+        # Config Area - Row 1: Name and Profile
         config_layout = QHBoxLayout()
         
         self.agent_name_input = QLineEdit()
         self.agent_name_input.setPlaceholderText("Agent Name")
+        self.agent_name_input.setFixedWidth(150)
         config_layout.addWidget(self.agent_name_input)
         
-        self.agent_instr_input = QLineEdit()
-        self.agent_instr_input.setPlaceholderText("Instructions (e.g. You are a helpful bot)")
-        config_layout.addWidget(self.agent_instr_input)
+        # Profile Selection
+        config_layout.addWidget(QLabel("Profile:"))
+        self.profile_combo = QComboBox()
+        self.profile_combo.setMinimumWidth(200)
+        self.profile_combo.currentTextChanged.connect(self._on_profile_changed)
+        config_layout.addWidget(self.profile_combo)
+        
+        refresh_profiles_btn = QPushButton("↻")
+        refresh_profiles_btn.setFixedWidth(30)
+        refresh_profiles_btn.setToolTip("Refresh Profiles")
+        refresh_profiles_btn.clicked.connect(self._load_agent_profiles)
+        config_layout.addWidget(refresh_profiles_btn)
+        
+        open_folder_btn = QPushButton("📁")
+        open_folder_btn.setFixedWidth(30)
+        open_folder_btn.setToolTip("Open Profiles Folder")
+        open_folder_btn.clicked.connect(self._open_profiles_folder)
+        config_layout.addWidget(open_folder_btn)
+        
+        config_layout.addStretch()
         
         create_agent_btn = QPushButton("Create Assistant")
         create_agent_btn.clicked.connect(self.create_assistant)
@@ -329,6 +349,11 @@ class MainWindow(QMainWindow):
         config_layout.addWidget(create_thread_btn)
 
         agent_layout.addLayout(config_layout)
+        
+        # Load profiles on init
+        self.agent_profiles = {}  # {name: {description, instructions}}
+        self.current_profile_instructions = ""
+        self._load_agent_profiles()
 
         # Agent Chat Display
         self.agent_display = QTextBrowser()
@@ -460,10 +485,67 @@ class MainWindow(QMainWindow):
         html = markdown.markdown(text)
         self.chat_display.append(f"<b>{role}:</b> {html}<br>")
 
+    # --- Agent Profile Methods ---
+    def _load_agent_profiles(self):
+        """Load agent profiles from agent_profiles/ directory"""
+        profiles_dir = os.path.join(os.path.dirname(__file__), "..", "agent_profiles")
+        profiles_dir = os.path.abspath(profiles_dir)
+        
+        self.agent_profiles = {}
+        self.profile_combo.blockSignals(True)
+        self.profile_combo.clear()
+        
+        # Add "No Profile" option
+        self.profile_combo.addItem("(No Profile)")
+        self.agent_profiles["(No Profile)"] = {"description": "No custom instructions", "instructions": ""}
+        
+        if os.path.exists(profiles_dir):
+            for yaml_file in glob.glob(os.path.join(profiles_dir, "*.yaml")):
+                try:
+                    with open(yaml_file, 'r', encoding='utf-8') as f:
+                        profile = yaml.safe_load(f)
+                        if profile and 'name' in profile:
+                            name = profile['name']
+                            self.agent_profiles[name] = {
+                                'description': profile.get('description', ''),
+                                'instructions': profile.get('instructions', '')
+                            }
+                            self.profile_combo.addItem(name)
+                except Exception as e:
+                    print(f"Error loading profile {yaml_file}: {e}")
+        
+        self.profile_combo.blockSignals(False)
+        
+        # Select first real profile if available
+        if self.profile_combo.count() > 1:
+            self.profile_combo.setCurrentIndex(1)
+    
+    def _on_profile_changed(self, profile_name):
+        """Handle profile selection change"""
+        if profile_name in self.agent_profiles:
+            profile = self.agent_profiles[profile_name]
+            self.current_profile_instructions = profile.get('instructions', '')
+            # Update tooltip with description
+            self.profile_combo.setToolTip(profile.get('description', ''))
+        else:
+            self.current_profile_instructions = ""
+    
+    def _open_profiles_folder(self):
+        """Open agent_profiles folder in file manager"""
+        profiles_dir = os.path.join(os.path.dirname(__file__), "..", "agent_profiles")
+        profiles_dir = os.path.abspath(profiles_dir)
+        if os.path.exists(profiles_dir):
+            os.system(f'open "{profiles_dir}"')  # macOS
+        else:
+            QMessageBox.warning(self, "Error", f"Profiles directory not found: {profiles_dir}")
+
     # --- Agent Mode Methods ---
     def create_assistant(self):
-        name = self.agent_name_input.text()
-        instr = self.agent_instr_input.text()
+        name = self.agent_name_input.text() or "Assistant"
+        # Get instructions from selected profile
+        instructions = self.current_profile_instructions
+        profile_name = self.profile_combo.currentText()
+        
         # Create/Init Engine
         api_key = self.config.get_api_key()
         if not api_key:
@@ -475,10 +557,12 @@ class MainWindow(QMainWindow):
         
         try:
             self.agent_status_label.setText("Initializing Agent...")
-            # We initialize the engine. Note: name/instr are effectively system prompts/config
-            # For this Phase, we just rely on standard prompt + tools, but we could inject instr.
-            self.agent_engine = LangChainAgentEngine(api_key, model, workspace, log_callback=self.agent_logger.log_message.emit)
-
+            # Initialize engine with profile instructions
+            self.agent_engine = LangChainAgentEngine(
+                api_key, model, workspace, 
+                log_callback=self.agent_logger.log_message.emit,
+                custom_instructions=instructions
+            )
             
             self.agent_status_label.setText("Agent Ready")
             self.agent_history = [] # Reset history
@@ -486,8 +570,9 @@ class MainWindow(QMainWindow):
             # Start new persistence session for Agent
             self.current_agent_conversation_id = None # Will be created on first message
             
-            self.agent_display.append(f"<b>System:</b> Agent '{name}' initialized in workspace: {workspace}<br>")
-            self.agent_display.append(f"<b>System:</b> Agent has tools: [Read, Write, List, Copy, Move, Delete]<br>")
+            self.agent_display.append(f"<b>System:</b> Agent '{name}' initialized with profile: {profile_name}<br>")
+            self.agent_display.append(f"<b>System:</b> Workspace: {workspace}<br>")
+            self.agent_display.append(f"<b>System:</b> Tools: [Files, Documents, OCR, Vision, Web Search]<br>")
             
         except Exception as e:
             QMessageBox.critical(self, "Error", str(e))

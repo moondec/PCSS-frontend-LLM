@@ -14,6 +14,7 @@ A Python desktop application (GUI) for interacting with the PCSS LLM Service, bu
 
 ### 2. 🤖 Agent Mode (Autonomous)
 The application features a powerful Agent capable of performing tasks on your local file system.
+-   **Configuration Profiles**: Select from predefined profiles (YAML files) to customize agent behavior for specific tasks (research, coding, document writing).
 -   **Workspace Security**: The agent is strictly confined to a specific directory (configurable in settings).
 -   **File Tools**: The agent can autonomously using tools:
     -   `ListDirectory`: See files.
@@ -24,7 +25,7 @@ The application features a powerful Agent capable of performing tasks on your lo
 -   **Autonomous Agent**: A "Agent Mode" that can perform complex tasks (File management, text processing).
 -   **Vision Capabilities**: Hybrid agent using GPT-4o for image analysis (`analyze_image`).
 -   **Internet Access**: Integrated **DuckDuckGo Search** for real-time information retrieval.
--   **Document Generation**: Create professional PDF/DOCX reports (via Pandoc).
+-   **Document Generation**: Create professional PDF/DOCX reports (via Pandoc/WeasyPrint).
 -   **Local & Secure**: Your data stays on your machine (except for API calls to PCSS/OpenAI).
 
 ### 3. 🔒 Security

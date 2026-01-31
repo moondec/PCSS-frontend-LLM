@@ -8,11 +8,13 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from pcss_llm_app.core.tools import DocumentTools, OCRTools, PandocTools, VisionTools, WebSearchTools
 
 class LangChainAgentEngine:
-    def __init__(self, api_key: str, model_name: str, workspace_path: str, log_callback=None):
+    def __init__(self, api_key: str, model_name: str, workspace_path: str, 
+                 log_callback=None, custom_instructions: str = None):
         self.api_key = api_key
         self.model_name = model_name
         self.workspace_path = workspace_path
         self.log_callback = log_callback
+        self.custom_instructions = custom_instructions or ""
         self._initialize_agent()
 
     def _log(self, message: str):
@@ -211,6 +213,8 @@ Final Answer: the final answer to the original input question
 5. When asked to SAVE to PDF, DOCX, or formatted documents:
    - Use `save_document` with HTML-formatted content (h1, h2, p, ul, li, b, i tags)
    - Example: save_document({{"file_path": "report.pdf", "content": "<h1>Title</h1><p>Content...</p>", "title": "Report Title"}})
+
+{f"**USER DEFINED INSTRUCTIONS:**" + chr(10) + self.custom_instructions if self.custom_instructions else ""}
 
 Begin!
 """
