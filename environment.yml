@@ -40,5 +40,9 @@ dependencies:
   # Web scraping
   - beautifulsoup4      # HTML parsing
   - requests            # HTTP requests
+  
+  # Chart generation
+  - matplotlib          # For generating charts and visualizations
+  
   - pip:
     - readability-lxml  # Article content extraction

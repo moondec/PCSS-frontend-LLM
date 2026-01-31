@@ -5,7 +5,7 @@ import datetime
 from langchain_openai import ChatOpenAI
 from langchain_community.agent_toolkits import FileManagementToolkit
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
-from pcss_llm_app.core.tools import DocumentTools, OCRTools, PandocTools, VisionTools, WebSearchTools
+from pcss_llm_app.core.tools import DocumentTools, OCRTools, PandocTools, VisionTools, WebSearchTools, ChartTools
 
 class LangChainAgentEngine:
     def __init__(self, api_key: str, model_name: str, workspace_path: str, 
@@ -63,6 +63,10 @@ class LangChainAgentEngine:
             base_url="https://llm.hpc.pcss.pl/v1"
         )
         self.tools.extend(web_search_tools.get_tools())
+
+        # Add Chart Generation Tools
+        chart_tools = ChartTools(root_dir=str(self.workspace_path))
+        self.tools.extend(chart_tools.get_tools())
 
 
 

@@ -461,6 +461,155 @@ class VisionTools:
         ]
 
 
+class ChartTools:
+    """
+    Tools for generating charts and visualizations using matplotlib.
+    """
+    def __init__(self, root_dir: str = "."):
+        self.root_dir = root_dir
+    
+    def generate_chart(
+        self, 
+        chart_type: str, 
+        data: str, 
+        labels: str, 
+        file_path: str,
+        title: str = "Chart",
+        x_label: str = "",
+        y_label: str = "",
+        colors: str = ""
+    ) -> str:
+        """
+        Generate a chart and save it as PNG/JPG.
+        
+        Args:
+            chart_type: Type of chart - 'bar', 'line', 'pie', 'scatter', 'horizontal_bar'
+            data: Comma-separated values (e.g., "10,25,30,15,20")
+            labels: Comma-separated labels (e.g., "Jan,Feb,Mar,Apr,May")
+            file_path: Output file path (e.g., "charts/sales.png")
+            title: Chart title
+            x_label: X-axis label (for bar/line charts)
+            y_label: Y-axis label (for bar/line charts)
+            colors: Optional comma-separated colors (e.g., "#FF6384,#36A2EB,#FFCE56")
+        
+        Returns:
+            Success message with file path or error message.
+        """
+        try:
+            import matplotlib
+            matplotlib.use('Agg')  # Non-interactive backend
+            import matplotlib.pyplot as plt
+            import numpy as np
+            
+            # Parse data
+            try:
+                values = [float(x.strip()) for x in data.split(",")]
+            except ValueError:
+                return "Error: 'data' must be comma-separated numbers (e.g., '10,25,30')"
+            
+            # Parse labels
+            label_list = [x.strip() for x in labels.split(",")]
+            if len(label_list) != len(values):
+                return f"Error: Number of labels ({len(label_list)}) must match number of data points ({len(values)})"
+            
+            # Parse colors
+            if colors:
+                color_list = [x.strip() for x in colors.split(",")]
+            else:
+                # Default color palette
+                color_list = plt.cm.Set3.colors[:len(values)]
+            
+            # Create figure
+            fig, ax = plt.subplots(figsize=(10, 6))
+            
+            chart_type_lower = chart_type.lower().strip()
+            
+            if chart_type_lower == "bar":
+                bars = ax.bar(label_list, values, color=color_list[:len(values)])
+                # Add value labels on bars
+                for bar, val in zip(bars, values):
+                    ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.5, 
+                           f'{val:.1f}', ha='center', va='bottom', fontsize=9)
+                           
+            elif chart_type_lower == "horizontal_bar":
+                bars = ax.barh(label_list, values, color=color_list[:len(values)])
+                for bar, val in zip(bars, values):
+                    ax.text(bar.get_width() + 0.5, bar.get_y() + bar.get_height()/2,
+                           f'{val:.1f}', ha='left', va='center', fontsize=9)
+                           
+            elif chart_type_lower == "line":
+                ax.plot(label_list, values, marker='o', linewidth=2, markersize=8, 
+                       color=color_list[0] if colors else '#36A2EB')
+                ax.fill_between(label_list, values, alpha=0.3)
+                
+            elif chart_type_lower == "pie":
+                ax.pie(values, labels=label_list, autopct='%1.1f%%', 
+                      colors=color_list[:len(values)], startangle=90)
+                ax.axis('equal')
+                
+            elif chart_type_lower == "scatter":
+                # For scatter, use index as X if no separate X data
+                x_vals = range(len(values))
+                ax.scatter(x_vals, values, c=color_list[:len(values)], s=100)
+                ax.set_xticks(list(x_vals))
+                ax.set_xticklabels(label_list)
+                
+            else:
+                return f"Error: Unknown chart_type '{chart_type}'. Use: bar, line, pie, scatter, horizontal_bar"
+            
+            # Set labels and title
+            ax.set_title(title, fontsize=14, fontweight='bold', pad=15)
+            if x_label and chart_type_lower != "pie":
+                ax.set_xlabel(x_label, fontsize=11)
+            if y_label and chart_type_lower != "pie":
+                ax.set_ylabel(y_label, fontsize=11)
+            
+            # Style
+            if chart_type_lower != "pie":
+                ax.spines['top'].set_visible(False)
+                ax.spines['right'].set_visible(False)
+                ax.grid(axis='y', alpha=0.3)
+            
+            plt.tight_layout()
+            
+            # Resolve path
+            full_path = os.path.join(self.root_dir, file_path)
+            os.makedirs(os.path.dirname(full_path) if os.path.dirname(full_path) else ".", exist_ok=True)
+            
+            # Determine format from extension
+            ext = os.path.splitext(file_path)[1].lower()
+            if ext not in ['.png', '.jpg', '.jpeg', '.svg', '.pdf']:
+                full_path += '.png'
+            
+            plt.savefig(full_path, dpi=150, bbox_inches='tight', 
+                       facecolor='white', edgecolor='none')
+            plt.close(fig)
+            
+            return f"Chart saved successfully: {file_path}"
+            
+        except ImportError:
+            return "Error: matplotlib is required. Install with: pip install matplotlib"
+        except Exception as e:
+            return f"Error generating chart: {str(e)}"
+    
+    def get_tools(self):
+        return [
+            StructuredTool.from_function(
+                func=self.generate_chart,
+                name="generate_chart",
+                description="""Generate a chart/visualization and save as PNG/JPG.
+Args:
+- chart_type: 'bar', 'line', 'pie', 'scatter', or 'horizontal_bar'
+- data: Comma-separated values (e.g., "10,25,30,15")
+- labels: Comma-separated labels (e.g., "Q1,Q2,Q3,Q4")
+- file_path: Output path (e.g., "chart.png")
+- title: Chart title
+- x_label, y_label: Optional axis labels
+- colors: Optional comma-separated hex colors"""
+            )
+        ]
+
+
 class WebSearchTools:
     """
     Optimized web search tools for deep research.
