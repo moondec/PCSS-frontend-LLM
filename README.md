@@ -71,7 +71,7 @@ The application has two distinct tabs:
     ```bash
     conda create -n bielik python=3.10 -y
     conda activate bielik
-    pip install pyside6 openai keyring markdown langchain langchain-openai langchain-community pypdf python-docx pypandoc duckduckgo-search
+    pip install pyside6 openai keyring markdown langchain langchain-openai langchain-community pypdf python-docx pypandoc ddgs
     ```
 
 ## ⚙️ Configuration

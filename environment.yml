@@ -29,7 +29,7 @@ dependencies:
   - glib               # Required by weasyprint
   
   # Internet Search
-  - duckduckgo-search
+  - ddgs                 # DuckDuckGo search (formerly duckduckgo-search)
   
   # Note: External tools required (install separately):
   # - pandoc >= 3.0 (https://pandoc.org/installing.html)
