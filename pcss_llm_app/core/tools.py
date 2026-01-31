@@ -453,7 +453,7 @@ class PandocTools:
             StructuredTool.from_function(
                 func=self.convert_document,
                 name="convert_document",
-                description="Converts documents between formats (e.g. HTML to DOCX). Best used for creating formatted reports: 'Write content to .html then convert to .docx'."
+                description="Converts documents between formats (e.g. HTML to DOCX). Args: source_path (str), output_format (str). Example: source_path='file.html', output_format='docx'."
             )
         ]
 

@@ -199,6 +199,11 @@ Observation: [result]
 Thought: I have the answer
 Final Answer: [your response]
 
+Examples:
+- convert_document: {{"source_path": "report.html", "output_format": "docx"}}
+- save_document: {{"file_path": "doc.html", "content": "<h1>Title</h1><p>...</p>", "title": "Doc"}}
+- search_web: {{"query": "news Poland"}}
+
 Rules:
 - Use search_news for current events, search_web for general info
 - Use visit_page to read full content from URLs (2-3 max)
