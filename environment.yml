@@ -24,10 +24,12 @@ dependencies:
   - pypdf              # PDF reading
   - python-docx        # DOCX reading/writing
   - pypandoc           # Document conversion (requires external pandoc)
+  - weasyprint         # HTML to PDF conversion (pure Python)
+  - pango              # Required by weasyprint
+  - glib               # Required by weasyprint
   
   # Internet Search
   - duckduckgo-search
   
   # Note: External tools required (install separately):
   # - pandoc >= 3.0 (https://pandoc.org/installing.html)
-  # - wkhtmltopdf (optional, fallback for PDF generation)

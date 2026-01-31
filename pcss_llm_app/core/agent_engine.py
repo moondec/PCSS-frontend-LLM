@@ -302,13 +302,13 @@ Begin!
                 except json.JSONDecodeError:
                     pass # treat as string
 
-                # Argument Mapping Fallback
+                # Argument Mapping Fallback for legacy tool parameter names
                 if isinstance(tool_args, dict):
                     # Map 'path' -> 'file_path'
                     if "path" in tool_args and "file_path" not in tool_args:
                          tool_args["file_path"] = tool_args.pop("path")
-                    # Map 'content' -> 'text'
-                    if "content" in tool_args and "text" not in tool_args:
+                    # Map 'content' -> 'text' for write_file/write_docx (but NOT save_document which uses 'content')
+                    if action in ["write_file", "write_docx"] and "content" in tool_args and "text" not in tool_args:
                          tool_args["text"] = tool_args.pop("content")
 
                 # Execute Tool

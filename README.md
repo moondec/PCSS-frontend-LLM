@@ -51,7 +51,6 @@ The application has two distinct tabs:
 -   **Anaconda** or **Miniconda** installed.
 -   Python 3.10+
 -   **Pandoc** >= 3.0 ([Download](https://github.com/jgm/pandoc/releases)) - Required for document conversion.
--   **wkhtmltopdf** (optional) - Fallback for PDF generation.
 
 ### Setup Pipeline
 
