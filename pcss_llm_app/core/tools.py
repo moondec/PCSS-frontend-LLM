@@ -459,15 +459,30 @@ class PandocTools:
 
 
 class VisionTools:
+    # Known multimodal/vision-capable models on PCSS
+    VISION_MODELS = [
+        "gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4-vision-preview",
+        "gemini-pro-vision", "gemini-1.5-pro", "gemini-1.5-flash",
+        "claude-3-opus", "claude-3-sonnet", "claude-3-haiku",
+        "llava", "qwen-vl", "cogvlm"
+    ]
+    
     def __init__(self, root_dir: str, api_key: str, model_name: str = None):
         self.root_dir = root_dir
         self.api_key = api_key
-        # Use provided model or fallback to a vision-capable model
         self.client = OpenAI(
             api_key=api_key,
             base_url="https://llm.hpc.pcss.pl/v1"
         )
-        self.model = model_name or "Bielik-11B-v2.3-Instruct"  # Use user's selected model
+        
+        # Check if provided model is vision-capable, otherwise try known vision models
+        if model_name and any(vm.lower() in model_name.lower() for vm in self.VISION_MODELS):
+            self.model = model_name
+        else:
+            # Default to a likely available vision model - user should check /v1/models
+            self.model = "gpt-4o-mini"  # Often available and cheaper than gpt-4o
+        
+        self.vision_available = True  # Will be set False if API calls fail
 
     def _get_full_path(self, file_path: str) -> str:
         return os.path.join(self.root_dir, file_path)
@@ -511,7 +526,10 @@ class VisionTools:
             )
             return response.choices[0].message.content
         except Exception as e:
-            return f"Error analyzing image: {str(e)}"
+            error_msg = str(e)
+            if "not a multimodal model" in error_msg.lower() or "multimodal" in error_msg.lower():
+                return f"Error: Model '{self.model}' does not support image analysis. Please use a vision-capable model (e.g., gpt-4o-mini, gpt-4-turbo) or check available models at /v1/models."
+            return f"Error analyzing image: {error_msg}"
 
     def get_tools(self):
         return [
