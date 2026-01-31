@@ -459,13 +459,11 @@ class PandocTools:
 
 
 class VisionTools:
-    # Known multimodal/vision-capable models on PCSS
-    VISION_MODELS = [
-        "gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4-vision-preview",
-        "gemini-pro-vision", "gemini-1.5-pro", "gemini-1.5-flash",
-        "claude-3-opus", "claude-3-sonnet", "claude-3-haiku",
-        "llava", "qwen-vl", "cogvlm"
-    ]
+    """
+    Vision/Image analysis tools.
+    NOTE: PCSS does not currently have multimodal models (gpt-4o, claude-3, etc.)
+    Use ocr_image for text extraction from images instead.
+    """
     
     def __init__(self, root_dir: str, api_key: str, model_name: str = None):
         self.root_dir = root_dir
@@ -474,26 +472,32 @@ class VisionTools:
             api_key=api_key,
             base_url="https://llm.hpc.pcss.pl/v1"
         )
-        
-        # Check if provided model is vision-capable, otherwise try known vision models
-        if model_name and any(vm.lower() in model_name.lower() for vm in self.VISION_MODELS):
-            self.model = model_name
-        else:
-            # Default to a likely available vision model - user should check /v1/models
-            self.model = "gpt-4o-mini"  # Often available and cheaper than gpt-4o
-        
-        self.vision_available = True  # Will be set False if API calls fail
+        self.model = model_name
+        # PCSS currently has no multimodal models
+        self.vision_available = False
 
     def _get_full_path(self, file_path: str) -> str:
         return os.path.join(self.root_dir, file_path)
 
     def analyze_image(self, file_path: str, prompt: str = "Describe this image in detail.") -> str:
         """
-        Analyzes an image file using a Vision LLM (GPT-4o) to understand its content, layout, or extract data.
+        Analyzes an image file using a Vision LLM.
+        NOTE: PCSS currently has NO multimodal models. Use ocr_image for text extraction.
         Args:
             file_path: The name of the image file (e.g., 'chart.png').
-            prompt: Question or instruction about the image (e.g., 'What is the trend in this chart?').
+            prompt: Question or instruction about the image.
         """
+        # PCSS has no multimodal models - return helpful error
+        if not self.vision_available:
+            return (
+                "⚠️ Image analysis (analyze_image) is NOT available on PCSS.\n"
+                "PCSS currently has no multimodal models (GPT-4o, Claude-3, etc.).\n\n"
+                "ALTERNATIVES:\n"
+                "- Use `ocr_image` to extract TEXT from images (uses Nanonets-OCR-s)\n"
+                "- For charts/graphs: describe the data you want to visualize instead\n"
+                "- For documents: use `ocr_image` to read the text content"
+            )
+        
         try:
             full_path = self._get_full_path(file_path)
             if not os.path.exists(full_path):
