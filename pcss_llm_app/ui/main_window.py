@@ -211,6 +211,9 @@ class MainWindow(QMainWindow):
         # Worker instances for cancellation
         self.chat_worker = None
         self.agent_worker = None
+        
+        # Theme state
+        self.current_theme = "Cobalt"
 
         self._init_ui()
         
@@ -221,6 +224,48 @@ class MainWindow(QMainWindow):
         
         # Try to load models
         self._refresh_models()
+        
+        # Apply saved theme or default
+        saved_theme = self.config.get("theme", "Cobalt")
+        self.apply_theme(saved_theme)
+    
+    # Theme definitions: Cobalt (dark) and Dreamweaver (light)
+    THEMES = {
+        "Cobalt": {
+            "name": "Cobalt",
+            "type": "dark",
+            "background": "#002240",
+            "foreground": "#ffffff",
+            "secondary_bg": "#013664",
+            "border": "#1e4a6d",
+            "accent": "#7aa6da",
+            "accent_hover": "#5a8fca",
+            "text_muted": "#969896",
+            "success": "#b9ca4a",
+            "error": "#d54e53",
+            "warning": "#e7c547",
+            "input_bg": "#001830",
+            "button_bg": "#013664",
+            "button_hover": "#024a88",
+        },
+        "Dreamweaver": {
+            "name": "Dreamweaver",
+            "type": "light",
+            "background": "#ffffff",
+            "foreground": "#000000",
+            "secondary_bg": "#f5f5f5",
+            "border": "#cccccc",
+            "accent": "#0066cc",
+            "accent_hover": "#0052a3",
+            "text_muted": "#666666",
+            "success": "#228b22",
+            "error": "#cc0000",
+            "warning": "#ff8c00",
+            "input_bg": "#ffffff",
+            "button_bg": "#e0e0e0",
+            "button_hover": "#d0d0d0",
+        }
+    }
     
     def eventFilter(self, source, event):
         if event.type() == QEvent.KeyPress:
@@ -267,6 +312,11 @@ class MainWindow(QMainWindow):
         settings_btn = QPushButton("Settings")
         settings_btn.clicked.connect(self.open_settings)
         sidebar_layout.addWidget(settings_btn)
+        
+        # Theme Toggle Button
+        self.theme_btn = QPushButton("🎨 Dreamweaver")
+        self.theme_btn.clicked.connect(self.toggle_theme)
+        sidebar_layout.addWidget(self.theme_btn)
 
         main_layout.addWidget(sidebar)
 
@@ -483,6 +533,136 @@ class MainWindow(QMainWindow):
         if dlg.exec():
             self.api = PcssApiClient(self.config)
             self._refresh_models()
+
+    def apply_theme(self, theme_name: str):
+        """Apply a theme to the application."""
+        if theme_name not in self.THEMES:
+            theme_name = "Cobalt"
+        
+        theme = self.THEMES[theme_name]
+        self.current_theme = theme_name
+        self.config.set("theme", theme_name)
+        
+        # Update theme toggle button text
+        if hasattr(self, 'theme_btn'):
+            other_theme = "Dreamweaver" if theme_name == "Cobalt" else "Cobalt"
+            self.theme_btn.setText(f"🎨 {other_theme}")
+        
+        # Build comprehensive stylesheet
+        stylesheet = f"""
+            QMainWindow, QWidget {{
+                background-color: {theme['background']};
+                color: {theme['foreground']};
+            }}
+            QLabel {{
+                color: {theme['foreground']};
+            }}
+            QTextEdit, QTextBrowser, QLineEdit {{
+                background-color: {theme['input_bg']};
+                color: {theme['foreground']};
+                border: 1px solid {theme['border']};
+                border-radius: 4px;
+                padding: 4px;
+            }}
+            QListWidget {{
+                background-color: {theme['secondary_bg']};
+                color: {theme['foreground']};
+                border: 1px solid {theme['border']};
+                border-radius: 4px;
+            }}
+            QListWidget::item:selected {{
+                background-color: {theme['accent']};
+                color: {theme['background']};
+            }}
+            QListWidget::item:hover {{
+                background-color: {theme['accent_hover']};
+            }}
+            QPushButton {{
+                background-color: {theme['button_bg']};
+                color: {theme['foreground']};
+                border: 1px solid {theme['border']};
+                border-radius: 4px;
+                padding: 6px 12px;
+                min-height: 24px;
+            }}
+            QPushButton:hover {{
+                background-color: {theme['button_hover']};
+            }}
+            QPushButton:pressed {{
+                background-color: {theme['accent']};
+            }}
+            QPushButton:disabled {{
+                background-color: {theme['secondary_bg']};
+                color: {theme['text_muted']};
+            }}
+            QComboBox {{
+                background-color: {theme['button_bg']};
+                color: {theme['foreground']};
+                border: 1px solid {theme['border']};
+                border-radius: 4px;
+                padding: 4px 8px;
+            }}
+            QComboBox::drop-down {{
+                border: none;
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: {theme['secondary_bg']};
+                color: {theme['foreground']};
+                selection-background-color: {theme['accent']};
+            }}
+            QTabWidget::pane {{
+                border: 1px solid {theme['border']};
+                background-color: {theme['background']};
+            }}
+            QTabBar::tab {{
+                background-color: {theme['secondary_bg']};
+                color: {theme['foreground']};
+                padding: 8px 16px;
+                border: 1px solid {theme['border']};
+                border-bottom: none;
+                border-top-left-radius: 4px;
+                border-top-right-radius: 4px;
+            }}
+            QTabBar::tab:selected {{
+                background-color: {theme['accent']};
+                color: {theme['background']};
+            }}
+            QMenuBar {{
+                background-color: {theme['secondary_bg']};
+                color: {theme['foreground']};
+            }}
+            QMenuBar::item:selected {{
+                background-color: {theme['accent']};
+            }}
+            QMenu {{
+                background-color: {theme['secondary_bg']};
+                color: {theme['foreground']};
+                border: 1px solid {theme['border']};
+            }}
+            QMenu::item:selected {{
+                background-color: {theme['accent']};
+            }}
+            QScrollBar:vertical {{
+                background-color: {theme['secondary_bg']};
+                width: 12px;
+                border-radius: 6px;
+            }}
+            QScrollBar::handle:vertical {{
+                background-color: {theme['border']};
+                border-radius: 6px;
+                min-height: 20px;
+            }}
+            QScrollBar::handle:vertical:hover {{
+                background-color: {theme['accent']};
+            }}
+        """
+        
+        self.setStyleSheet(stylesheet)
+    
+    def toggle_theme(self):
+        """Toggle between Cobalt and Dreamweaver themes."""
+        new_theme = "Dreamweaver" if self.current_theme == "Cobalt" else "Cobalt"
+        self.apply_theme(new_theme)
 
     def start_new_chat(self):
         self.current_conversation_id = None
