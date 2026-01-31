@@ -36,3 +36,9 @@ dependencies:
   
   # YAML Parsing
   - pyyaml              # For agent profile configuration files
+  
+  # Web scraping
+  - beautifulsoup4      # HTML parsing
+  - requests            # HTTP requests
+  - pip:
+    - readability-lxml  # Article content extraction

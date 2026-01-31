@@ -462,158 +462,135 @@ class VisionTools:
 
 
 class WebSearchTools:
+    """
+    Optimized web search tools for deep research.
+    """
     def __init__(self, api_key: str = None, model_name: str = "gpt-4o", base_url: str = "https://llm.hpc.pcss.pl/v1"):
         self.api_key = api_key
         self.model_name = model_name
         self.base_url = base_url
         self.client = None
         if self.api_key:
-             try:
-                 self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
-             except Exception:
-                 pass
+            try:
+                self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
+            except Exception:
+                pass
 
-    def get_tools(self):
-        return [
-            StructuredTool.from_function(
-                func=self.search_web,
-                name="search_web",
-                description="Performs a web search using DuckDuckGo. Use this to find current events, specific facts, or data not in your training set. Input: query string. Optional: time_limit ('d'=day, 'w'=week, 'm'=month)."
-            ),
-            StructuredTool.from_function(
-                func=self.visit_page,
-                name="visit_page",
-                description="Visits a specific URL and extracts its text content. Use this to read the full article after finding a link with search_web. Input: url string."
-            )
-        ]
-
-    def _refine_query(self, query: str) -> str:
+    def search_web(self, query: str, max_results: int = 10) -> str:
         """
-        Uses LLM to refine the search query for better results.
-        """
-        if not self.client:
-            return query
-            
-        try:
-            prompt = f"""You are a Search Engine Expert. Transform the following user query into a highly effective DuckDuckGo search string.
-User Query: "{query}"
-
-Guidelines:
-1. Extract core keywords.
-2. If looking for a definition, DO NOT exclude dictionaries.
-3. If looking for specific data (prices, weather), exclude generic sites like dictionaries using -site:operator.
-3. If looking for specific data (prices, weather), exclude generic sites like dictionaries using -site:operator.
-4. If the query implies "current news" or "today", REMOVE specific dates (e.g., "2026-01-30") from the query string. The time_limit parameter handles the date.
-5. Use standard search operators (site:, ", -) effectively but sparingly.
-6. Return ONLY the optimized query string, nothing else.
-
-Optimized Query:"""
-            
-            response = self.client.chat.completions.create(
-                model=self.model_name, # Use the configured model
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=60,
-                temperature=0.3
-            )
-            refined = response.choices[0].message.content.strip()
-            # Remove quotes if present around the whole string
-            if (refined.startswith('"') and refined.endswith('"')):
-                refined = refined[1:-1]
-            return refined
-        except Exception as e:
-            print(f"Query refinement failed: {e}")
-            return query
-
-    def search_web(self, query: str, time_limit: str = None) -> str:
-        """
-        Performs a web search using DuckDuckGo.
+        Performs a general web search using DuckDuckGo.
+        Best for: definitions, how-to guides, reference information.
         Args:
-            query: The search query.
-            time_limit: Optional time limit ('d', 'w', 'm', 'y').
+            query: The search query string.
+            max_results: Maximum number of results (default 10).
         """
         try:
-            # Heuristic: Auto-detect time limit if not provided
-            if not time_limit:
-                lower_q = query.lower()
-                if any(w in lower_q for w in ["dzisiaj", "today", "news", "wiadomości", "najnowsze", "latest", "aktualne", "current"]):
-                    time_limit = "d"
-                    print(f"DEBUG: Auto-detected time_limit='d' from query keywords.")
-
-            # Smart Refinement (skip if time_limit is set generally, but refine query string is still good)
-            final_query = self._refine_query(query)
-            print(f"DEBUG: Refined Query: '{query}' -> '{final_query}' TimeLimit: {time_limit}")
-
-            # Fallback Filter
-            should_filter = any(w in query.lower() for w in ["aktualny", "znaczenie", "co to"])
-            
             results = []
-            
-            # Helper function to perform search
-            def perform_search(search_query, t_limit=None):
-                search_results = []
-                with DDGS() as ddgs:
-                    # Get up to 10 results
-                    ddgs_gen = ddgs.text(search_query, region="pl-pl", max_results=10, timelimit=t_limit)
-                    if ddgs_gen:
-                        for r in ddgs_gen:
-                             link = r.get('href', '')
-                             if should_filter:
-                                 if any(x in link for x in ['sjp.pwn.pl', 'synonim.net', 'wiktionary.org', 'diki.pl', 'dobryslownik.pl', 'synonimy.pl', 'sjp.pl']):
-                                     continue
-                             search_results.append(f"Title: {r.get('title')}\nLink: {link}\nSnippet: {r.get('body')}\n")
-                return search_results
-
-            # 1. Try Refined Query
-            results = perform_search(final_query, time_limit)
-            
-            # 2. Fallback: If refined query yielded no results, try original query
-            if not results and final_query != query:
-                print(f"DEBUG: Refined query returned 0 results. Falling back to original query: '{query}'")
-                results = perform_search(query, time_limit)
+            with DDGS() as ddgs:
+                ddgs_gen = ddgs.text(query, region="pl-pl", max_results=max_results)
+                if ddgs_gen:
+                    for i, r in enumerate(ddgs_gen, 1):
+                        results.append(
+                            f"[{i}] {r.get('title', 'No title')}\n"
+                            f"    URL: {r.get('href', '')}\n"
+                            f"    {r.get('body', '')[:200]}"
+                        )
             
             if not results:
-                return "No results found."
+                return "No results found. Try rephrasing your query."
             
-            return "\n---\n".join(results)
+            return "SEARCH RESULTS:\n\n" + "\n\n".join(results) + "\n\n[TIP: Use visit_page on URLs to read full content]"
         except Exception as e:
-            return f"Error searching web: {str(e)}"
+            return f"Search error: {str(e)}"
+
+    def search_news(self, query: str, max_results: int = 8) -> str:
+        """
+        Searches for recent NEWS articles using DuckDuckGo News.
+        Best for: current events, breaking news, recent developments.
+        Args:
+            query: The news search query.
+            max_results: Maximum number of news articles (default 8).
+        """
+        try:
+            results = []
+            with DDGS() as ddgs:
+                news_gen = ddgs.news(query, region="pl-pl", max_results=max_results)
+                if news_gen:
+                    for i, r in enumerate(news_gen, 1):
+                        date = r.get('date', 'Unknown date')
+                        source = r.get('source', 'Unknown source')
+                        results.append(
+                            f"[{i}] {r.get('title', 'No title')}\n"
+                            f"    Source: {source} | Date: {date}\n"
+                            f"    URL: {r.get('url', '')}\n"
+                            f"    {r.get('body', '')[:200]}"
+                        )
+            
+            if not results:
+                return "No news found. Try broader search terms."
+            
+            return "NEWS RESULTS:\n\n" + "\n\n".join(results) + "\n\n[TIP: Use visit_page on URLs to read full articles]"
+        except Exception as e:
+            return f"News search error: {str(e)}"
 
     def visit_page(self, url: str) -> str:
         """
-        Visits a URL and extracts text content.
+        Visits a URL and extracts the main article content.
+        Uses readability algorithm to extract relevant text, ignoring navigation/ads.
+        Args:
+            url: The URL to visit.
         """
         try:
             import requests
-            from bs4 import BeautifulSoup
+            from readability import Document
             
             headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-                "Accept-Charset": "utf-8"
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "pl-PL,pl;q=0.9,en;q=0.8",
             }
-            response = requests.get(url, headers=headers, timeout=10)
-            response.raise_for_status()
             
-            # Force UTF-8 encoding for Polish characters
+            response = requests.get(url, headers=headers, timeout=15)
+            response.raise_for_status()
             response.encoding = response.apparent_encoding or 'utf-8'
             
-            soup = BeautifulSoup(response.text, 'html.parser')
+            # Use readability to extract main content
+            doc = Document(response.text)
+            title = doc.title()
             
-            # Remove scripts and styles
-            for script in soup(["script", "style", "nav", "footer", "header"]):
-                script.decompose()
+            # Get clean HTML content and convert to text
+            from bs4 import BeautifulSoup
+            content_html = doc.summary()
+            soup = BeautifulSoup(content_html, 'html.parser')
             
-            text = soup.get_text()
+            # Extract text with better formatting
+            text_parts = []
+            for elem in soup.find_all(['p', 'h1', 'h2', 'h3', 'li']):
+                text = elem.get_text(strip=True)
+                if text and len(text) > 20:  # Skip short fragments
+                    text_parts.append(text)
             
-            # Clean text
-            lines = (line.strip() for line in text.splitlines())
-            chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
-            text = '\n'.join(chunk for chunk in chunks if chunk)
+            content = "\n\n".join(text_parts)
             
-            # Limit length to avoid context overflow (approx 2000 words / 8000 chars)
-            return text[:8000] + "..." if len(text) > 8000 else text
+            if not content or len(content) < 100:
+                # Fallback to basic extraction if readability fails
+                soup = BeautifulSoup(response.text, 'html.parser')
+                for tag in soup(['script', 'style', 'nav', 'footer', 'header', 'aside']):
+                    tag.decompose()
+                content = soup.get_text(separator='\n', strip=True)
             
-        except ImportError:
-            return "Error: 'requests' or 'beautifulsoup4' libraries not found. Please install them."
+            # Limit to ~10000 chars (roughly 2500 words)
+            if len(content) > 10000:
+                content = content[:10000] + "\n\n[... Content truncated ...]"
+            
+            return f"=== {title} ===\nSource: {url}\n\n{content}"
+            
+        except ImportError as ie:
+            return f"Missing library: {ie}. Install with: pip install readability-lxml requests beautifulsoup4"
+        except requests.exceptions.Timeout:
+            return f"Timeout: Page took too long to load: {url}"
+        except requests.exceptions.HTTPError as he:
+            return f"HTTP Error {he.response.status_code}: Cannot access {url}"
         except Exception as e:
             return f"Error visiting page: {str(e)}"
 
@@ -622,11 +599,17 @@ Optimized Query:"""
             StructuredTool.from_function(
                 func=self.search_web,
                 name="search_web",
-                description="Searches the Internet for current information. Returns a list of links with snippets. You MUST then use 'visit_page' on the most relevant links to read the full content."
+                description="Search the web for general information (definitions, guides, reference). Returns links with snippets. Use visit_page to read full content."
+            ),
+            StructuredTool.from_function(
+                func=self.search_news,
+                name="search_news",
+                description="Search for recent NEWS and current events. Returns news articles with dates and sources. Use visit_page to read full articles."
             ),
             StructuredTool.from_function(
                 func=self.visit_page,
                 name="visit_page",
-                description="Visits a URL and extracts the text content. Use this AFTER search_web to read the full article. Input: URL string."
+                description="Visit a URL and extract the main article text. Use AFTER search_web or search_news to read full content from a link."
             )
         ]
+
