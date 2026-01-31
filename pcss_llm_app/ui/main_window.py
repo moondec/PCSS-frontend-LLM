@@ -423,13 +423,13 @@ class MainWindow(QMainWindow):
         config_layout.addWidget(self.profile_combo)
         
         refresh_profiles_btn = QPushButton("↻")
-        refresh_profiles_btn.setFixedWidth(30)
+        refresh_profiles_btn.setFixedSize(40, 32)
         refresh_profiles_btn.setToolTip("Refresh Profiles")
         refresh_profiles_btn.clicked.connect(self._load_agent_profiles)
         config_layout.addWidget(refresh_profiles_btn)
         
         open_folder_btn = QPushButton("📁")
-        open_folder_btn.setFixedWidth(30)
+        open_folder_btn.setFixedSize(40, 32)
         open_folder_btn.setToolTip("Open Profiles Folder")
         open_folder_btn.clicked.connect(self._open_profiles_folder)
         config_layout.addWidget(open_folder_btn)
