@@ -122,6 +122,7 @@ Rules:
 - For documents: save_document with HTML content
 - For simple text: write_file with 'file_path' and 'text'
 - Be efficient - stop when you have enough information
+- IF YOU NEED TO ASK THE USER A QUESTION: You MUST use "Final Answer: [your question]" to return control to the user. Do not just "think" the question.
 
 {f"User Instructions: " + self.custom_instructions if self.custom_instructions else ""}
 Begin!"""
