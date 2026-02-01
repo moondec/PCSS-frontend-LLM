@@ -112,12 +112,14 @@ Final Answer: [your response]
 Examples:
 - convert_document: {{"source_path": "report.html", "output_format": "docx"}}
 - save_document: {{"file_path": "doc.html", "content": "<h1>Title</h1><p>...</p>", "title": "Doc"}}
+- write_file: {{"file_path": "notes.txt", "text": "Details..."}}
 - search_web: {{"query": "news Poland"}}
 
 Rules:
 - Use search_news for current events, search_web for general info
 - Use visit_page to read full content from URLs (2-3 max)
 - For documents: save_document with HTML content
+- For simple text: write_file with 'file_path' and 'text'
 - Be efficient - stop when you have enough information
 
 {f"User Instructions: " + self.custom_instructions if self.custom_instructions else ""}
@@ -139,7 +141,7 @@ Begin!"""
         if is_continuation and self.active_scratchpad:
             self._log("Resuming from previous scratchpad...")
             # Resume exactly where we left off
-            prompt = f"{system_template}\n{history_text}\n(Resuming task...)\nThought: I should continue my work. Here is what I have done so far:\n{self.active_scratchpad}\nObservation: Please continue from the last point.\nThought:"
+            prompt = f"{system_template}\n{history_text}\n(Resuming task...)\nThought: I should continue my work. Here is what I have done so far:\n{self.active_scratchpad}\nObservation: Please continue from the last point. Remember to use 'Action:' and 'Action Input:' for next steps.\nThought:"
         else:
             self.active_scratchpad = "" # Reset if it's a new task
             prompt = f"{system_template}\n{history_text}\nQuestion: {input_text}\nThought:"
@@ -193,7 +195,15 @@ Begin!"""
                     action = match.group(1).strip()
                     action_input = match.group(2).strip()
                 
-                # Sanitize input
+                # Sanitize input: remove markdown code blocks
+                if "```" in action_input:
+                    json_match = re.search(r"```(?:json)?\s*(.*?)\s*```", action_input, re.DOTALL)
+                    if json_match:
+                        action_input = json_match.group(1).strip()
+                    else:
+                        action_input = action_input.replace("```json", "").replace("```", "").strip()
+
+                # Remove surrounding quotes
                 if (action_input.startswith('"') and action_input.endswith('"')) or \
                    (action_input.startswith("'") and action_input.endswith("'")):
                     action_input = action_input[1:-1]
@@ -206,6 +216,17 @@ Begin!"""
 
                 # Argument Mapping Fallback
                 if isinstance(tool_args, dict):
+                    # Handle nested JSON string in a single field (Agent hallucination)
+                    if len(tool_args) == 1:
+                        key = list(tool_args.keys())[0]
+                        val = tool_args[key]
+                        if isinstance(val, str) and val.strip().startswith("{"):
+                            try:
+                                nested = json.loads(val)
+                                if isinstance(nested, dict):
+                                    tool_args = nested
+                            except: pass
+
                     if "path" in tool_args and "file_path" not in tool_args:
                          tool_args["file_path"] = tool_args.pop("path")
                     if action in ["write_file", "write_docx"] and "content" in tool_args and "text" not in tool_args:
