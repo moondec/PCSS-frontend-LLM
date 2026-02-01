@@ -338,6 +338,38 @@ class DocumentTools:
             ),
         ]
 
+
+class FolderTools:
+    def __init__(self, root_dir: str):
+        self.root_dir = root_dir
+
+    def _get_full_path(self, file_path: str) -> str:
+        return os.path.join(self.root_dir, file_path)
+
+    def create_directory(self, directory_path: str) -> str:
+        """
+        Creates a new directory (folder) at the specified path.
+        Args:
+            directory_path: The name or path of the directory to create.
+        """
+        try:
+            full_path = self._get_full_path(directory_path)
+            os.makedirs(full_path, exist_ok=True)
+            return f"Successfully created directory: {directory_path}"
+        except Exception as e:
+            return f"Error creating directory: {str(e)}"
+
+    def get_tools(self):
+        from langchain_core.tools import StructuredTool
+
+        return [
+            StructuredTool.from_function(
+                func=self.create_directory,
+                name="create_directory",
+                description="Creates a new directory (folder) within the workspace. Useful for organizing files."
+            )
+        ]
+
 class OCRTools:
     def __init__(self, root_dir: str, api_key: str):
         self.root_dir = root_dir

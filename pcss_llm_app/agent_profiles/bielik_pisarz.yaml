@@ -36,6 +36,7 @@ instructions: |
 
   NARZĘDZIA:
   - read_file: odczytywanie istniejących plików.
+  - create_directory: tworzenie nowych katalogów/folderów.
   - write_file: tworzenie nowych plików.
   - list_directory: eksploracja struktury katalogów projektu.
   - edit_file: modyfikowanie konkretnych bloków kodu w plikach.

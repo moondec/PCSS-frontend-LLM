@@ -5,7 +5,7 @@ import datetime
 from langchain_openai import ChatOpenAI
 from langchain_community.agent_toolkits import FileManagementToolkit
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
-from pcss_llm_app.core.tools import DocumentTools, OCRTools, PandocTools, VisionTools, WebSearchTools, ChartTools
+from pcss_llm_app.core.tools import DocumentTools, OCRTools, PandocTools, VisionTools, WebSearchTools, ChartTools, FolderTools
 
 class LangChainAgentEngine:
     def __init__(self, api_key: str, model_name: str, workspace_path: str, 
@@ -49,6 +49,10 @@ class LangChainAgentEngine:
         # Add OCR Tools
         ocr_tools = OCRTools(root_dir=str(self.workspace_path), api_key=self.api_key)
         self.tools.extend(ocr_tools.get_tools())
+
+        # Add Folder Tools
+        folder_tools = FolderTools(root_dir=str(self.workspace_path))
+        self.tools.extend(folder_tools.get_tools())
 
         # Add Pandoc Tools
         pandoc_tools = PandocTools(root_dir=str(self.workspace_path))

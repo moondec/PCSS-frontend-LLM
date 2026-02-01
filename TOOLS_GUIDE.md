@@ -5,6 +5,7 @@ This document describes the tools available to the Autonomous Agent in the PCSS 
 ## 📂 File Management
 Basic file system operations within the workspace.
 *   **list_directory**: Lists files and folders.
+*   **create_directory**: Creates a new folder (folder path).
 *   **read_file**: Reads proper contents of text files.
 *   **write_file**: Creates or overwrites text files.
 *   **copy_file / move_file / delete_file**: Standard file operations.

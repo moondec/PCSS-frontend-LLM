@@ -36,6 +36,7 @@ instructions: |
 
     TOOLS:
   - read_file: Read existing files.
+  - create_directory: Create new folders.
   - write_file: Create new files.
   - list_directory: Explore project directory structure.
   - edit_file: Modify specific blocks of code within files.
