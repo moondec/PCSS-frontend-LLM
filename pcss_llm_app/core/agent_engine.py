@@ -231,6 +231,14 @@ Begin!"""
                                 nested = json.loads(val)
                                 if isinstance(nested, dict):
                                     tool_args = nested
+                            except json.JSONDecodeError:
+                                # Try fixing common JSON string errors (unescaped newlines)
+                                try:
+                                    fixed_val = val.replace('\n', '\\n').replace('\r', '')
+                                    nested = json.loads(fixed_val)
+                                    if isinstance(nested, dict):
+                                        tool_args = nested
+                                except: pass
                             except: pass
 
                     # Tool-specific Alias Mapping

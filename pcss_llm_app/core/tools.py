@@ -342,6 +342,9 @@ class DocumentTools:
 class CreateDirectorySchema(BaseModel):
     directory_path: str = Field(description="The name or path of the directory to create.")
 
+class ListDirectorySchema(BaseModel):
+    dir_path: str = Field(default=".", description="The path of the directory to list.")
+
 class FolderTools:
     def __init__(self, root_dir: str):
         self.root_dir = root_dir
@@ -362,6 +365,59 @@ class FolderTools:
         except Exception as e:
             return f"Error creating directory: {str(e)}"
 
+    def list_directory(self, dir_path: str = ".") -> str:
+        """
+        Lists files and subdirectories in the specified path.
+        Args:
+            dir_path: Path to list (default is root).
+        """
+        try:
+            full_path = self._get_full_path(dir_path)
+            if not os.path.exists(full_path):
+                return f"Error: Directory '{dir_path}' does not exist."
+            
+            items = os.listdir(full_path)
+            output = []
+            
+            # Sort items: directories first, then files
+            dims = []
+            files = []
+            
+            for item in items:
+                if item.startswith('.'): continue # Skip hidden files
+                item_path = os.path.join(full_path, item)
+                if os.path.isdir(item_path):
+                    dims.append(item)
+                else:
+                    files.append(item)
+            
+            dims.sort()
+            files.sort()
+            
+            if not dims and not files:
+                return f"Directory '{dir_path}' is empty."
+
+            for d in dims:
+                 output.append(f"[DIR]  {d}")
+            
+            for f in files:
+                try:
+                    size_bytes = os.path.getsize(os.path.join(full_path, f))
+                    # simple size formatting
+                    if size_bytes < 1024:
+                        size_str = f"{size_bytes} B"
+                    elif size_bytes < 1024 * 1024:
+                        size_str = f"{size_bytes/1024:.1f} KB"
+                    else:
+                        size_str = f"{size_bytes/(1024*1024):.1f} MB"
+                    output.append(f"[FILE] {f} ({size_str})")
+                except:
+                    output.append(f"[FILE] {f}")
+            
+            return "\n".join(output)
+        except Exception as e:
+            return f"Error listing directory: {str(e)}"
+
     def get_tools(self):
         from langchain_core.tools import StructuredTool
 
@@ -371,6 +427,12 @@ class FolderTools:
                 name="create_directory",
                 description="Creates a new directory (folder) within the workspace. Useful for organizing files.",
                 args_schema=CreateDirectorySchema
+            ),
+            StructuredTool.from_function(
+                func=self.list_directory,
+                name="list_directory",
+                description="Lists files and directories with their sizes. Useful for exploring content.",
+                args_schema=ListDirectorySchema
             )
         ]
 
