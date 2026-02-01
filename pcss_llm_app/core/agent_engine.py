@@ -196,18 +196,23 @@ Begin!"""
                     action = match.group(1).strip()
                     action_input = match.group(2).strip()
                 
-                # Sanitize input: remove markdown code blocks
+                # Safe Sanitization: stripping markdown wrappers only if they encompass the whole input
+                action_input = action_input.strip()
                 if "```" in action_input:
-                    json_match = re.search(r"```(?:json)?\s*(.*?)\s*```", action_input, re.DOTALL)
-                    if json_match:
-                        action_input = json_match.group(1).strip()
+                    # Look for a block that starts at the beginning and ends at the end
+                    block_match = re.search(r"^```(?:json)?\s*(.*?)\s*```$", action_input, re.DOTALL)
+                    if block_match:
+                        action_input = block_match.group(1).strip()
                     else:
-                        action_input = action_input.replace("```json", "").replace("```", "").strip()
+                        # If not a whole-block wrap, only strip if it explicitly starts and ends with backticks
+                        if action_input.startswith("```") and action_input.endswith("```"):
+                             action_input = re.sub(r"^```(?:json)?", "", action_input)
+                             action_input = re.sub(r"```$", "", action_input).strip()
 
-                # Remove surrounding quotes
+                # Remove surrounding quotes only if they wrap the whole thing
                 if (action_input.startswith('"') and action_input.endswith('"')) or \
                    (action_input.startswith("'") and action_input.endswith("'")):
-                    action_input = action_input[1:-1]
+                    action_input = action_input[1:-1].strip()
                 
                 # Try parsing as JSON
                 try:
