@@ -149,6 +149,8 @@ Begin!"""
 
         max_steps = 50
         action_history = []
+        thought_history = []
+        observation_history = []
         
         for i in range(max_steps):
             # Reset variables at start of each iteration to prevent stale values
@@ -165,6 +167,16 @@ Begin!"""
             output = response.content
             print(f"--- Step {i} ---\nLLM Output:\n{output}\n----------------")
             self._log(f"Agent Thought:\n{output}")
+            
+            # Smart Loop Detection (Thoughts)
+            # Normalize thought (remove whitespace/newlines for comparison)
+            current_thought = output.replace("Thought:", "").strip()
+            # If we have seen this exact thought recently (in last 3 steps), it's a loop
+            if len(thought_history) > 0 and current_thought == thought_history[-1]:
+                 self._log("⚠️ Thought Loop detected! Agent is repeating itself.")
+                 return "Agent stopped: Repetitive thought process detected. The task seems completed or the agent is stuck."
+            
+            thought_history.append(current_thought)
             
             prompt += output
             self.active_scratchpad += output # Mirror to scratchpad
@@ -261,14 +273,11 @@ Begin!"""
                     if action in ["write_file", "write_docx"] and "content" in tool_args and "text" not in tool_args:
                          tool_args["text"] = tool_args.pop("content")
 
-                # Loop Detection
+                # Action Loop Detection
                 current_action = (action, action_input)
-                if action_history.count(current_action) >= 2:
-                    self._log("⚠️ Loop detected!")
-                    loop_msg = f"\nObservation: Loop detected. You have already tried {action} with {action_input} twice. Please change strategy.\nThought:"
-                    prompt += loop_msg
-                    self.active_scratchpad += loop_msg
-                    continue
+                if action_history.count(current_action) >= 3: # Allow one retry
+                    self._log("⚠️ Action Loop detected! Stopping agent.")
+                    return "Agent stopped: Repetitive action loop. I have tried this too many times."
                 
                 action_history.append(current_action)
 
@@ -278,9 +287,13 @@ Begin!"""
                     tool = self.tool_map[action]
                     try:
                         observation = tool.run(tool_args) if hasattr(tool, "run") else tool(tool_args)
-                        # Stagnation check
-                        if observation and len(action_history) > 1 and observation == (action_history[-2][1] if len(action_history) > 1 else None):
-                             observation += " (No change from previous attempt)"
+                        
+                        # Observation Loop / Stagnation check
+                        if len(observation_history) > 0 and observation == observation_history[-1]:
+                             self._log("⚠️ Stagnation detected (Repeated Observation).")
+                             observation += " (Warning: You received this exact same result in the previous step. Stop if you are done.)"
+                        
+                        observation_history.append(observation)
                         self._log(f"Observation: {observation}")
                     except Exception as e:
                         observation = f"Error executing {action}: {e}"

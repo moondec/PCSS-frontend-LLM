@@ -4,11 +4,13 @@
 
 A Python desktop application (GUI) for interacting with the PCSS LLM Service, built with **PySide6 (Qt)** and **LangChain**.
 
+>Tested on macOS. Need more tools and tests.
+
 ## ✨ Key Features
 
 ### 1. 💬 Chat Mode
 -   **Conversation History**: All chats are saved locally to an SQLite database (`conversations.db`).
--   **Model Selection**: Dynamically fetches models from PCSS (e.g., `bielik-11b-v2.3-instruct`, `gpt-4o`).
+-   **Model Selection**: Dynamically fetches models from PCSS (e.g., `bielik_11b`, `DeepSeek-V3.1-vLLM-2`).
 -   **Import/Export**: Save and load specific conversations to JSON files.
 -   **Markdown Support**: Full rendering of headings, code blocks, and lists.
 
