@@ -15,6 +15,7 @@ class LangChainAgentEngine:
         self.workspace_path = workspace_path
         self.log_callback = log_callback
         self.custom_instructions = custom_instructions or ""
+        self.active_scratchpad = "" # Persistence layer for long tasks
         self._initialize_agent()
 
     def _log(self, message: str):
@@ -83,6 +84,7 @@ class LangChainAgentEngine:
          return self.llm.invoke(prompt, stop=stop).content
 
     # Intelligent Run method with loop detection and flexible limits
+    # Intelligent Run method with loop detection and flexible limits
     def run(self, input_text: str, chat_history: List = None):
         if chat_history is None:
             chat_history = []
@@ -119,29 +121,31 @@ Rules:
 - Be efficient - stop when you have enough information
 
 {f"User Instructions: " + self.custom_instructions if self.custom_instructions else ""}
-Begin!
-"""
-        # History
+Begin!"""
+        
+        # Build conversation history
         history_text = ""
         for msg in chat_history:
             role = "Question" if isinstance(msg, HumanMessage) else "Final Answer" 
-            # Note: Mapping history to ReAct format is tricky. 
-            # Better to just dump it as context or assume it was Q/A.
             content = msg.content if hasattr(msg, "content") else str(msg)
             if isinstance(msg, HumanMessage):
                 history_text += f"Question: {content}\n"
             else:
                  history_text += f"Final Answer: {content}\n"
 
-        prompt = f"{system_template}\n{history_text}\nQuestion: {input_text}\nThought:"
-        
-        # Check if we are continuing a previous task
+        # Stateful Continuation Logic
         is_continuation = any(word in input_text.lower() for word in ["kontynuuj", "continue", "zacznij od", "dalej"])
-        if is_continuation:
-            prompt = f"{system_template}\n{history_text}\n(Continuation of current task)\nQuestion: {input_text}\nThought: I should check what was already done and continue from where I left off."
+        
+        if is_continuation and self.active_scratchpad:
+            self._log("Resuming from previous scratchpad...")
+            # Resume exactly where we left off
+            prompt = f"{system_template}\n{history_text}\n(Resuming task...)\nThought: I should continue my work. Here is what I have done so far:\n{self.active_scratchpad}\nObservation: Please continue from the last point.\nThought:"
+        else:
+            self.active_scratchpad = "" # Reset if it's a new task
+            prompt = f"{system_template}\n{history_text}\nQuestion: {input_text}\nThought:"
 
-        max_steps = 25  # High enough to allow complex tasks
-        action_history = [] # For loop detection
+        max_steps = 25
+        action_history = []
         
         for i in range(max_steps):
             # Reset variables at start of each iteration to prevent stale values
@@ -150,33 +154,28 @@ Begin!
             tool_args = None
             match = None
             
-            # print(f"DEBUG: Start Step {i}", flush=True)
             self._log(f"--- Step {i+1} ---")
             
             # Invoke LLM with stop sequence
             self._log("Thinking...")
-            print(f"--- Step {i} ---")
-            # print(f"Prompt end:\n{prompt[-500:]}") 
-            
             response = self.llm.invoke(prompt, stop=["Observation:"])
             output = response.content
-            print(f"LLM Output:\n{output}\n----------------")
+            print(f"--- Step {i} ---\nLLM Output:\n{output}\n----------------")
             self._log(f"Agent Thought:\n{output}")
             
             prompt += output
+            self.active_scratchpad += output # Mirror to scratchpad
             
             if "Final Answer:" in output:
+                self.active_scratchpad = "" # Task finished, clear scratchpad
                 return output.split("Final Answer:")[-1].strip()
             
             # Parse Action
-            # Regex for "Action: ... \nAction Input: ..."
-            # We look for the last occurrence in the output (should be only one due to stop)
             pattern = r"Action:\s*(.+?)\nAction Input:\s*(.+)"
             match = re.search(pattern, output, re.DOTALL)
             
-            # Fallback for "function call" style (common in some PCSS models)
+            # Fallback for "function call" style
             if not match:
-                 # Look for: function call {"name": "toolsname", "arguments": {...}}
                  json_pattern = r'function call\s*({.*?})'
                  json_match = re.search(json_pattern, output, re.DOTALL)
                  if json_match:
@@ -184,96 +183,72 @@ Begin!
                          func_data = json.loads(json_match.group(1))
                          if "name" in func_data:
                              action = func_data["name"]
-                             # Handle arguments: could be dict or string
                              args = func_data.get("arguments", {})
-                             if isinstance(args, dict):
-                                 action_input = json.dumps(args)
-                             else:
-                                 action_input = str(args)
-                             match = True # Flag as found
-                     except Exception:
-                         pass
+                             action_input = json.dumps(args) if isinstance(args, dict) else str(args)
+                             match = True 
+                     except Exception: pass
 
             if match:
-                # Extract from regex match only if it's a regex match object (not True flag from JSON parsing)
                 if hasattr(match, 'group'):
                     action = match.group(1).strip()
                     action_input = match.group(2).strip()
-                # If match == True, action and action_input were already set by JSON parsing above
                 
-                # Sanitize input: remove surrounding quotes if present
-                
-                # Sanitize input: remove surrounding quotes if present
+                # Sanitize input
                 if (action_input.startswith('"') and action_input.endswith('"')) or \
                    (action_input.startswith("'") and action_input.endswith("'")):
                     action_input = action_input[1:-1]
                 
                 # Try parsing as JSON
-                tool_args = action_input
                 try:
                     tool_args = json.loads(action_input)
                 except json.JSONDecodeError:
-                    pass # treat as string
+                    tool_args = action_input
 
-                # Argument Mapping Fallback for legacy tool parameter names
+                # Argument Mapping Fallback
                 if isinstance(tool_args, dict):
-                    # Map 'path' -> 'file_path'
                     if "path" in tool_args and "file_path" not in tool_args:
                          tool_args["file_path"] = tool_args.pop("path")
-                    # Map 'content' -> 'text' for write_file/write_docx (but NOT save_document which uses 'content')
                     if action in ["write_file", "write_docx"] and "content" in tool_args and "text" not in tool_args:
                          tool_args["text"] = tool_args.pop("content")
 
                 # Loop Detection
                 current_action = (action, action_input)
                 if action_history.count(current_action) >= 2:
-                    self._log("⚠️ Loop detected! Agent is repeating the same action.")
-                    prompt += f"\nObservation: Loop detected. You have already tried {action} with {action_input} twice. Please reconsider your strategy or explain why you are stuck.\nThought:"
+                    self._log("⚠️ Loop detected!")
+                    loop_msg = f"\nObservation: Loop detected. You have already tried {action} with {action_input} twice. Please change strategy.\nThought:"
+                    prompt += loop_msg
+                    self.active_scratchpad += loop_msg
                     continue
                 
                 action_history.append(current_action)
 
                 # Execute Tool
                 if action in self.tool_map:
-                    print(f"DEBUG: Found tool {action}", flush=True)
                     self._log(f"Executing Tool: {action} (Step {i+1}/{max_steps})")
                     tool = self.tool_map[action]
                     try:
-                        # print(f"DEBUG: Executing {action}. Tool Type: {type(tool)}", flush=True)
-                        if hasattr(tool, "run"):
-                            # print("DEBUG: Using .run()", flush=True)
-                            observation = tool.run(tool_args)
-                        else:
-                            # print("DEBUG: Using __call__", flush=True)
-                            observation = tool(tool_args)
-                        
-                        # Check for repetitive non-progress observations
-                        if observation and observation == (action_history[-2][1] if len(action_history) > 1 else None):
+                        observation = tool.run(tool_args) if hasattr(tool, "run") else tool(tool_args)
+                        # Stagnation check
+                        if observation and len(action_history) > 1 and observation == (action_history[-2][1] if len(action_history) > 1 else None):
                              observation += " (No change from previous attempt)"
-                             
                         self._log(f"Observation: {observation}")
                     except Exception as e:
-                        print(f"DEBUG: Exception in tool exec: {e}", flush=True)
                         observation = f"Error executing {action}: {e}"
                         self._log(f"Error: {observation}")
                 else:
-                    observation = f"Error: Tool '{action}' not found. Available tools: {tool_names}"
+                    observation = f"Error: Tool '{action}' not found."
                 
-                # print(f"Observation: {observation}")
-                # Append Observation
-                prompt += f"\nObservation: {observation}\nThought:"
+                obs_text = f"\nObservation: {observation}\nThought:"
+                prompt += obs_text
+                self.active_scratchpad += obs_text
             else:
-                # If no action found but no final answer, force it to think or just return
                 if "Action:" in output and "Action Input:" not in output:
-                     prompt += "\nAction Input:" # Prompt it to continue
+                     prompt += "\nAction Input:"
+                     self.active_scratchpad += "\nAction Input:"
                      continue
-                
-                if not output.strip():
-                     # Empty response?
-                     return "Error: Agent produced empty response."
-                     
-                # If it just rambles without Action, maybe it's done or confused.
-                # Let's assume it failed to follow format.
-                prompt += "\nObservation: Invalid format. Please use 'Action:' and 'Action Input:'\nThought:"
+                if not output.strip(): return "Error: Agent produced empty response."
+                fmt_error = "\nObservation: Invalid format. Please use 'Action:' and 'Action Input:'\nThought:"
+                prompt += fmt_error
+                self.active_scratchpad += fmt_error
 
         return f"Agent reached safety limit of {max_steps} steps without finishing. To prevent excessive API usage, I have stopped here. You can ask me to 'continue' if you believe more progress can be made."
