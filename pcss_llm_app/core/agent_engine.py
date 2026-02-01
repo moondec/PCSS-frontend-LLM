@@ -296,7 +296,7 @@ Begin!"""
                 question_patterns = [
                     "pytanie do ciebie", "czy mam", "should i", "do you want", 
                     "czy chcesz", "mam przystąpić", "mogę rozpocząć",
-                    "czy mam teraz", "czy powinenem", "czy mogę",
+                    "czy mam teraz", "czy powinienem", "czy mogę",
                     "proszę o decyzję", "pytanie:", "decyzja:"
                 ]
                 
@@ -317,7 +317,7 @@ Begin!"""
                 # If it looks like a question, but NOT a Final Answer, intercept it.
                 if is_question and "Final Answer" not in output:
                      self._log("⚠️ Heuristic: Agent is trying to ask a question via Tool/Thought. Intercepting.")
-                     interception_msg = "\nObservation: SYSTEM INTEVENTION: It looks like you want to ask the user a question (e.g., 'Czy mam...'). \nSTOP. Do not write this to a file or just think about it. \nYou MUST use the format: 'Final Answer: [your question]' to actually ask the user and get a response.\nThought:"
+                     interception_msg = "\nObservation: SYSTEM INTERVENTION: It looks like you want to ask the user a question (e.g., 'Czy mam...'). \nSTOP. Do not write this to a file or just think about it. \nYou MUST use the format: 'Final Answer: [your question]' to actually ask the user and get a response.\nThought:"
                      prompt += interception_msg
                      self.active_scratchpad += interception_msg
                      continue

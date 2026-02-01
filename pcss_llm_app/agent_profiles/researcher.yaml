@@ -28,6 +28,7 @@ instructions: |
   - list_directory: Use `dir_path` argument (e.g. `{"dir_path": "."}`).
   - save_document: Ensure HTML content is well-formed.
   - JSON FORMAT: Do not wrap your JSON Action Input in markdown code blocks (```json). Just output the raw JSON string.
+  - INTERACTION RULE: If you need to ask the user a question, YOU MUST use `Final Answer: [your question]`. Do not write questions to files or just think them. This provides the question to the user and pauses execution.
 
   LIMITS & EFFICIENCY:
   - DIMINISHING RETURNS: Stop searching once 3-4 high-quality sources provide a consistent answer. 

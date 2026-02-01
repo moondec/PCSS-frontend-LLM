@@ -39,6 +39,7 @@ instructions: |
     POPRAWNIE: `{"file_path": "plik.txt", "text": "Linia 1\\nLinia 2"}`
   - list_directory: Używaj argumentu `dir_path` (np. `{"dir_path": "."}`).
   - FORMAT DANYCH: Nie otaczaj danych wejściowych (JSON) blokami markdown (```json). Wypisuj czysty ciąg znaków JSON.
+  - ZASADA INTERAKCJI: Jeśli musisz zadać pytanie użytkownikowi, MUSISZ użyć formatu `Final Answer: [twoje pytanie]`. Nie zapisuj pytań w plikach ani w myślach. To zwróci kontrolę użytkownikowi.
 
   NARZĘDZIA:
   - read_file: odczytywanie istniejących plików.

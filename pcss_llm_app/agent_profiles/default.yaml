@@ -33,6 +33,7 @@ instructions: |
   - list_directory: Use `dir_path` argument (e.g. `{"dir_path": "."}`).
   - create_directory: Use `directory_path` argument.
   - JSON FORMAT: Do not wrap your JSON Action Input in markdown code blocks (```json). Just output the raw JSON string.
+  - INTERACTION RULE: If you need to ask the user a question, YOU MUST use `Final Answer: [your question]`. Do not write questions to files or just think them. This provides the question to the user and pauses execution.
 
   TOOLS:
   - read_file: Read existing files.
