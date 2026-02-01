@@ -231,8 +231,14 @@ Begin!
 
         prompt = f"{system_template}\n{history_text}\nQuestion: {input_text}\nThought:"
         
-        max_steps = 8  # Reduced for faster response
+        # Check if we are continuing a previous task
+        is_continuation = any(word in input_text.lower() for word in ["kontynuuj", "continue", "zacznij od", "dalej"])
+        if is_continuation:
+            prompt = f"{system_template}\n{history_text}\n(Continuation of current task)\nQuestion: {input_text}\nThought: I should check what was already done and continue from where I left off."
+
+        max_steps = 12  # Increased from 8 to allow more complex tasks
         
+        last_thought = ""
         for i in range(max_steps):
             # Reset variables at start of each iteration to prevent stale values
             action = None
@@ -352,4 +358,4 @@ Begin!
                 # Let's assume it failed to follow format.
                 prompt += "\nObservation: Invalid format. Please use 'Action:' and 'Action Input:'\nThought:"
 
-        return "Agent stopped: Max steps reached."
+        return "Agent stopped: Max steps (12) reached. You can ask me to 'continue' to keep working on this task."
