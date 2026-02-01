@@ -171,10 +171,18 @@ Begin!"""
             # Smart Loop Detection (Thoughts)
             # Normalize thought (remove whitespace/newlines for comparison)
             current_thought = output.replace("Thought:", "").strip()
-            # If we have seen this exact thought recently (in last 3 steps), it's a loop
-            if len(thought_history) > 0 and current_thought == thought_history[-1]:
-                 self._log("⚠️ Thought Loop detected! Agent is repeating itself.")
+            
+            # Strict stop only after 3 consecutive identical thoughts
+            if len(thought_history) >= 2 and current_thought == thought_history[-1] and current_thought == thought_history[-2]:
+                 self._log("⚠️ Thought Loop detected! Agent is repeating itself 3 times.")
                  return "Agent stopped: Repetitive thought process detected. The task seems completed or the agent is stuck."
+            
+            # Warning on 2nd identical thought
+            if len(thought_history) >= 1 and current_thought == thought_history[-1]:
+                 self._log("⚠️ Potential Thought Loop (2nd occurrence). Injecting warning.")
+                 warning_msg = "\nObservation: Warning: You are repeating your exact same thought. Please move to the next step or change your approach.\nThought:"
+                 prompt += warning_msg
+                 self.active_scratchpad += warning_msg
             
             thought_history.append(current_thought)
             
