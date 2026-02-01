@@ -79,106 +79,10 @@ class LangChainAgentEngine:
         # print("DEBUG: Building map", flush=True)
         self.tool_map = {t.name: t for t in self.tools}
 
-    def run(self, input_text: str, chat_history: List = None):
-        if chat_history is None:
-            chat_history = []
-        
-        # Construct ReAct Prompt
-        tool_names = list(self.tool_map.keys())
-        tool_descriptions = "\n".join([f"{t.name}: {t.description}" for t in self.tools])
-        
-        current_date = datetime.datetime.now().strftime("%Y-%m-%d")
-        
-        system_prompt = f"""Answer the following questions as best you can. You have access to the following tools:
-
-Current Date: {current_date}
-
-{tool_descriptions}
-
-Use the following format:
-
-Question: the input question you must answer
-Thought: you should always think about what to do
-Action: the action to take, should be one of [{', '.join(tool_names)}]
-Action Input: the input to the action
-Observation: the result of the action
-... (this Thought/Action/Action Input/Observation can repeat N times)
-Thought: I now know the final answer
-Final Answer: the final answer to the original input question
-
-GUIDELINES:
-- **CURRENT DATE OVERRIDE**: TODAY IS {current_date}. Ignore any internal knowledge claiming it is 2024 or earlier.
-- **NEWS SEARCH**: When asked for "current" or "today's" news, you MUST use the `time_limit` parameter.
-  - Example: `Action: search_web` -> `Action Input: {{"query": "Poland news", "time_limit": "d"}}`
-- **DEEP ANALYSIS**:
-  1. FIRST use `search_web` to find links.
-  2. THEN use `visit_page` on the most relevant links (2-3 max) to read the full content.
-  3. FINALLY synthesize the information from the full content, NOT just the search snippets.
-- Citation is important. Always provide the source URL.
-
-Begin!
-"""
-        
-        # Build conversation history
-        history_text = ""
-        for msg in chat_history:
-            role = "User" if isinstance(msg, HumanMessage) else "AI"
-            # Attempt to extract content properly
-            content = msg.content if hasattr(msg, 'content') else str(msg)
-            history_text += f"{role}: {content}\n"
-            
-        full_prompt = f"{system_prompt}\n{history_text}\nQuestion: {input_text}\nThought:"
-        
-        # Manual ReAct Loop
-        max_steps = 10
-        current_scratchpad = ""
-        
-        for _ in range(max_steps):
-            # Prompt the LLM
-            # We append the scratchpad (history of thoughts/actions in this turn)
-            prompt_input = full_prompt + current_scratchpad
-            
-            response_msg = self.llm.invoke(prompt_input)
-            response_text = response_msg.content
-            
-            current_scratchpad += response_text
-            
-            # Parse for Action
-            # We look for "Action: <name>" and "Action Input: <input>"
-            # We use Regex to find the LAST action in the chunk (though ideally model stops)
-            
-            # Simple parser: look for "Final Answer:"
-            if "Final Answer:" in response_text:
-                return response_text.split("Final Answer:")[-1].strip()
-            
-            # Look for Action
-            action_match = re.search(r"Action:\s*(.*?)\nAction Input:\s*(.*)", response_text, re.DOTALL)
-            if action_match:
-                action_name = action_match.group(1).strip()
-                action_input = action_match.group(2).strip().split('\n')[0] # Take first line of input if multiline? Or relies on observation next?
-                
-                # Careful extracting input, sometimes it's multiline. 
-                # Usually ReAct expects "Observation:" to interpret stop.
-                # But here we got the text.
-                
-                # Let's refine extraction.
-                # We need to find Action and Action Input that are NOT followed by Observation yet (since we are generating it)
-                pass
-            
-            # Regex to find action and input
-            # We look for the pattern, but we need to be careful about multiple actions (unlikely with stop triggers, but here we don't have stop triggers set on LLM maybe?)
-            # ChatOpenAI usually doesn't stop unless we tell it. 
-            # We should probably set stop words for LLM invoke ["Observation:"]
-            
-            # Let's re-invoke with stop words for safety in next step
-            pass
-
-        return "Agent stopped due to max steps."
-
     def run_step(self, prompt, stop=None):
          return self.llm.invoke(prompt, stop=stop).content
 
-    # Revised Run method
+    # Intelligent Run method with loop detection and flexible limits
     def run(self, input_text: str, chat_history: List = None):
         if chat_history is None:
             chat_history = []
@@ -236,9 +140,9 @@ Begin!
         if is_continuation:
             prompt = f"{system_template}\n{history_text}\n(Continuation of current task)\nQuestion: {input_text}\nThought: I should check what was already done and continue from where I left off."
 
-        max_steps = 12  # Increased from 8 to allow more complex tasks
+        max_steps = 25  # High enough to allow complex tasks
+        action_history = [] # For loop detection
         
-        last_thought = ""
         for i in range(max_steps):
             # Reset variables at start of each iteration to prevent stale values
             action = None
@@ -320,10 +224,19 @@ Begin!
                     if action in ["write_file", "write_docx"] and "content" in tool_args and "text" not in tool_args:
                          tool_args["text"] = tool_args.pop("content")
 
+                # Loop Detection
+                current_action = (action, action_input)
+                if action_history.count(current_action) >= 2:
+                    self._log("⚠️ Loop detected! Agent is repeating the same action.")
+                    prompt += f"\nObservation: Loop detected. You have already tried {action} with {action_input} twice. Please reconsider your strategy or explain why you are stuck.\nThought:"
+                    continue
+                
+                action_history.append(current_action)
+
                 # Execute Tool
                 if action in self.tool_map:
                     print(f"DEBUG: Found tool {action}", flush=True)
-                    self._log(f"Executing Tool: {action}")
+                    self._log(f"Executing Tool: {action} (Step {i+1}/{max_steps})")
                     tool = self.tool_map[action]
                     try:
                         # print(f"DEBUG: Executing {action}. Tool Type: {type(tool)}", flush=True)
@@ -333,6 +246,11 @@ Begin!
                         else:
                             # print("DEBUG: Using __call__", flush=True)
                             observation = tool(tool_args)
+                        
+                        # Check for repetitive non-progress observations
+                        if observation and observation == (action_history[-2][1] if len(action_history) > 1 else None):
+                             observation += " (No change from previous attempt)"
+                             
                         self._log(f"Observation: {observation}")
                     except Exception as e:
                         print(f"DEBUG: Exception in tool exec: {e}", flush=True)
@@ -358,4 +276,4 @@ Begin!
                 # Let's assume it failed to follow format.
                 prompt += "\nObservation: Invalid format. Please use 'Action:' and 'Action Input:'\nThought:"
 
-        return "Agent stopped: Max steps (12) reached. You can ask me to 'continue' to keep working on this task."
+        return f"Agent reached safety limit of {max_steps} steps without finishing. To prevent excessive API usage, I have stopped here. You can ask me to 'continue' if you believe more progress can be made."
