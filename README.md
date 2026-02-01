@@ -23,8 +23,8 @@ The application features a powerful Agent capable of performing tasks on your lo
     -   `Copy/Move/Delete`: Manage files.
 -   **Use Case**: "Read this report.pdf and create a summary.txt" -> Agent does it automatically.
 -   **Autonomous Agent**: A "Agent Mode" that can perform complex tasks (File management, text processing).
--   **Vision Capabilities**: Hybrid agent using GPT-4o for image analysis (`analyze_image`).
 -   **Internet Access**: Integrated **DuckDuckGo Search** for real-time information retrieval.
+-   **OCR Capabilities**: Extract text from images and scans using `ocr_image` (Nanonets OCR).
 -   **Document Generation**: Create professional PDF/DOCX reports (via Pandoc/WeasyPrint).
 -   **Local & Secure**: Your data stays on your machine (except for API calls to PCSS/OpenAI).
 
@@ -41,10 +41,10 @@ The application has two distinct tabs:
 | **Primary Use** | Conversation, Brainstorming, Q&A | **Executing Tasks**, File Operations, Research |
 | **Tools Access** | ❌ No Tools | ✅ **Has Tools** (Internet, Vision, Files, Pandoc) |
 | **Internet** | ❌ Offline (Knowledge cutoff) | ✅ **Online** (via DuckDuckGo) |
-| **Vision** | ❌ Text only | ✅ **Vision** (via GPT-4o proxy) |
+| **Vision** | ❌ Text only | ❌ Text only (Use OCR for text extraction) |
 
 > [!IMPORTANT]
-> If you want the model to **search the web**, **read files**, or **analyze images**, you MUST use the **Agent Mode** tab. The standard Chat tab is for pure text conversation only.
+> If you want the model to **search the web** or **read files**, you MUST use the **Agent Mode** tab. The standard Chat tab is for pure text conversation only. Analyze images using the `ocr_image` tool in Agent Mode.
 
 ## 🛠️ Installation
 

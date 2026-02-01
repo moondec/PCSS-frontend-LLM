@@ -27,8 +27,8 @@ Powerful models with general knowledge, comparable to GPT-4.
     *   **Best for:** Solving reasoning puzzles, analyzing long documents, writing code.
 
 *   **GPT-4o (OpenAI)**
-    *   **Strengths:** Versatility, "intuition", excellent instruction following.
-    *   **Best for:** Everything – from creative writing to data analysis. (Availability depends on API key config).
+    *   **Availability:** Currently **NOT AVAILABLE** on PCSS (use for text tasks only if available in list).
+    *   **Note:** Multi-modal features (vision) are disabled.
 
 *   **Llama 3.3 (70B)**
     *   **Maker:** Meta.
@@ -97,8 +97,8 @@ Najpotężniejsze modele o ogólnej wiedzy, porównywalne z GPT-4.
     *   **Najlepsze do:** Rozwiązywania zagadek logicznych, analizy długich dokumentów, pisania kodu.
 
 *   **GPT-4o (OpenAI)**
-    *   **Mocne strony:** Wszechstronność, "intuicja", świetne podążanie za instrukcjami.
-    *   **Najlepsze do:** Wszystkiego – od kreatywnego pisania po analizę danych. (Dostępne zależnie od konfiguracji klucza API).
+    *   **Dostępność:** Obecnie **NIEDOSTĘPNY** na PCSS (używaj do zadań tekstowych tylko jeśli jest na liście).
+    *   **Uwaga:** Funkcje multimodalne (wizja) są wyłączone.
 
 *   **Llama 3.3 (70B)**
     *   **Producent:** Meta.
