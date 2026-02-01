@@ -31,6 +31,13 @@ instructions: |
   - Primary: Python (data processing focus), R, MATLAB, Julia.
   - Secondary: JavaScript/TypeScript, SQL, Bash.
 
+  TOOL USAGE RULES:
+  - write_file: When writing code, YOU MUST ESCAPE NEWLINES (`\\n`) in the JSON string. Do not use literal newlines.
+    CORRECT: `{"file_path": "script.py", "text": "def main():\\n    print('Hello')\\n"}`
+  - list_directory: Use `dir_path` argument (e.g. `{"dir_path": "src/core"}`).
+  - create_directory: Use `directory_path` argument.
+  - JSON FORMAT: Do not wrap your JSON Action Input in markdown code blocks (```json). Just output the raw JSON string.
+
   TOOLS:
   - read_file: Read existing files.
   - create_directory: Create new folders.

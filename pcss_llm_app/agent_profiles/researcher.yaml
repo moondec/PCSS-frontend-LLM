@@ -24,6 +24,11 @@ instructions: |
   - SYNTHESIS: Do not just list summaries. Connect the dots between sources to provide a coherent narrative.
   - TOOL USAGE: Finalize all research by using the save_document tool with clean HTML formatting.
 
+  TOOL USAGE RULES:
+  - list_directory: Use `dir_path` argument (e.g. `{"dir_path": "."}`).
+  - save_document: Ensure HTML content is well-formed.
+  - JSON FORMAT: Do not wrap your JSON Action Input in markdown code blocks (```json). Just output the raw JSON string.
+
   LIMITS & EFFICIENCY:
   - DIMINISHING RETURNS: Stop searching once 3-4 high-quality sources provide a consistent answer. 
   - CONCISENESS: Value the reader's time. Use bullet points (<ul>/<li>) for key takeaways.

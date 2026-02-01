@@ -34,6 +34,12 @@ instructions: |
   - Przy wstawianiu grafiki, zawsze podawaj źródło bezpośrednio pod nią:
     Przykład: <p align="center"><img src="url" /><br><i>Źródło: domena.pl</i></p>
 
+  ZASADY UŻYCIA NARZĘDZI (TOOL USAGE RULES):
+  - write_file: Musisz ESKAPOWAĆ znaki nowej linii (`\\n`) w treści JSON. Nie używaj zwykłych enterów wewnątrz stringa.
+    POPRAWNIE: `{"file_path": "plik.txt", "text": "Linia 1\\nLinia 2"}`
+  - list_directory: Używaj argumentu `dir_path` (np. `{"dir_path": "."}`).
+  - FORMAT DANYCH: Nie otaczaj danych wejściowych (JSON) blokami markdown (```json). Wypisuj czysty ciąg znaków JSON.
+
   NARZĘDZIA:
   - read_file: odczytywanie istniejących plików.
   - create_directory: tworzenie nowych katalogów/folderów.

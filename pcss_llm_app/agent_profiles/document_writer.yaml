@@ -32,7 +32,13 @@ instructions: |
 
   IMAGE INTEGRATION RULE:
   - If providing an image, always append the source directly below it:
+  - If providing an image, always append the source directly below it:
     Example: <p align="center"><img src="url" /><br><i>Source: domain.com</i></p>
+
+  TOOL USAGE RULES:
+  - write_file: Escape newlines (`\\n`) in JSON strings.
+  - list_directory: Use `dir_path` argument.
+  - JSON FORMAT: Do not wrap your JSON Action Input in markdown code blocks (```json). Just output the raw JSON string.
 
     TOOLS:
   - read_file: Read existing files.
