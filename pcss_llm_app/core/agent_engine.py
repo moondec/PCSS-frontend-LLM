@@ -113,6 +113,7 @@ Examples:
 - convert_document: {{"source_path": "report.html", "output_format": "docx"}}
 - save_document: {{"file_path": "doc.html", "content": "<h1>Title</h1><p>...</p>", "title": "Doc"}}
 - write_file: {{"file_path": "notes.txt", "text": "Details..."}}
+- list_directory: {{"dir_path": "."}}
 - search_web: {{"query": "news Poland"}}
 
 Rules:
@@ -227,16 +228,25 @@ Begin!"""
                                     tool_args = nested
                             except: pass
 
-                    if "path" in tool_args and "file_path" not in tool_args:
-                         tool_args["file_path"] = tool_args.pop("path")
+                    # Tool-specific Alias Mapping
+                    if action == "list_directory":
+                        if "path" in tool_args: tool_args["dir_path"] = tool_args.pop("path")
+                        elif "file_path" in tool_args: tool_args["dir_path"] = tool_args.pop("file_path")
+                    
+                    elif action == "create_directory":
+                        if "file_path" in tool_args: tool_args["directory_path"] = tool_args.pop("file_path")
+                        elif "path" in tool_args: tool_args["directory_path"] = tool_args.pop("path")
+                    
+                    elif action in ["read_file", "write_file", "delete_file", "move_file", "copy_file", "read_docx", "read_pdf"]:
+                        if "path" in tool_args and "file_path" not in tool_args:
+                            tool_args["file_path"] = tool_args.pop("path")
+                    
+                    elif action == "convert_document":
+                        if "path" in tool_args: tool_args["source_path"] = tool_args.pop("path")
+                        elif "file_path" in tool_args: tool_args["source_path"] = tool_args.pop("file_path")
+
                     if action in ["write_file", "write_docx"] and "content" in tool_args and "text" not in tool_args:
                          tool_args["text"] = tool_args.pop("content")
-                    # Map aliases for create_directory
-                    if action == "create_directory":
-                        if "file_path" in tool_args and "directory_path" not in tool_args:
-                            tool_args["directory_path"] = tool_args.pop("file_path")
-                        elif "path" in tool_args and "directory_path" not in tool_args:
-                            tool_args["directory_path"] = tool_args.pop("path")
 
                 # Loop Detection
                 current_action = (action, action_input)
