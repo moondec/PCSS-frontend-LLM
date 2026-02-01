@@ -138,14 +138,13 @@ Begin!"""
                  history_text += f"Final Answer: {content}\n"
 
         # Stateful Continuation Logic
-        is_continuation = any(word in input_text.lower() for word in ["kontynuuj", "continue", "zacznij od", "dalej"])
-        
-        if is_continuation and self.active_scratchpad:
-            self._log("Resuming from previous scratchpad...")
-            # Resume exactly where we left off
-            prompt = f"{system_template}\n{history_text}\n(Resuming task...)\nThought: I should continue my work. Here is what I have done so far:\n{self.active_scratchpad}\nObservation: Please continue from the last point. Remember to use 'Action:' and 'Action Input:' for next steps.\nThought:"
+        # Smart Resume: If we have an active scratchpad from a previous turn (because we asked a question), resume automatically.
+        if self.active_scratchpad:
+            self._log("Resuming from persistent interaction state...")
+            # We treat the user's new input as an observation/answer to the agent's previous state
+            prompt = f"{system_template}\n{history_text}\n(Resuming task context...)\nThought: I should continue my work. Here is the history of my previous steps:\n{self.active_scratchpad}\nObservation: User Feedback/Answer: {input_text}\nNote: Decide if this answers your question or if you need to adjust your plan.\nThought:"
         else:
-            self.active_scratchpad = "" # Reset if it's a new task
+            self.active_scratchpad = "" # Ensure clean start
             prompt = f"{system_template}\n{history_text}\nQuestion: {input_text}\nThought:"
 
         max_steps = 50
@@ -191,8 +190,22 @@ Begin!"""
             self.active_scratchpad += output # Mirror to scratchpad
             
             if "Final Answer:" in output:
-                self.active_scratchpad = "" # Task finished, clear scratchpad
-                return output.split("Final Answer:")[-1].strip()
+                final_ans = output.split("Final Answer:")[-1].strip()
+                
+                # Context Preservation Logic
+                # If Final Answer is a question, KEEP the scratchpad so we can resume next turn.
+                is_question_end = final_ans.endswith("?")
+                question_markers = ["czy", "pytanie", "question", "should i", "decide"]
+                is_question_content = any(m in final_ans.lower() for m in question_markers)
+                
+                if is_question_end or is_question_content:
+                    self._log("Context Preserved: Agent asked a question. Scratchpad kept for next turn.")
+                    # Do not clear active_scratchpad
+                else:
+                    self._log("Task Completed. Clearing Context.")
+                    self.active_scratchpad = "" # Task finished, clear scratchpad
+                
+                return final_ans
             
             # Parse Action
             pattern = r"Action:\s*(.+?)\nAction Input:\s*(.+)"
