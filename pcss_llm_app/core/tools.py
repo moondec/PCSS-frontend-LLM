@@ -461,8 +461,8 @@ class PandocTools:
 class VisionTools:
     """
     Vision/Image analysis tools.
-    Attempts to use gpt-oss_120b which may support multimodal.
-    Fallback: use ocr_image for text extraction.
+    NOTE: PCSS does not currently have multimodal models (like GPT-4o).
+    Use ocr_image for text extraction from images instead.
     """
     
     def __init__(self, root_dir: str, api_key: str, model_name: str = None):
@@ -472,9 +472,9 @@ class VisionTools:
             api_key=api_key,
             base_url="https://llm.hpc.pcss.pl/v1"
         )
-        # Try gpt-oss_120b for potential multimodal support
-        self.model = "gpt-oss_120b"
-        self.vision_available = True  # Will try and fail gracefully if not supported
+        self.model = model_name
+        # PCSS currently has no multimodal models
+        self.vision_available = False
 
     def _get_full_path(self, file_path: str) -> str:
         return os.path.join(self.root_dir, file_path)
