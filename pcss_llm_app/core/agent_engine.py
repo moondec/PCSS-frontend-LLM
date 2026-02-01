@@ -147,7 +147,7 @@ Begin!"""
             self.active_scratchpad = "" # Reset if it's a new task
             prompt = f"{system_template}\n{history_text}\nQuestion: {input_text}\nThought:"
 
-        max_steps = 25
+        max_steps = 50
         action_history = []
         
         for i in range(max_steps):
