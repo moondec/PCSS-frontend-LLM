@@ -291,6 +291,25 @@ Begin!"""
                     if action in ["write_file", "write_docx"] and "content" in tool_args and "text" not in tool_args:
                          tool_args["text"] = tool_args.pop("content")
 
+                # Heuristic Question Detection (Force Interaction)
+                # Check if agent is trying to "write" a question to a file or "think" a question without asking
+                question_patterns = [
+                    "pytanie do ciebie", "czy mam", "should i", "do you want", 
+                    "czy chcesz", "mam przystąpić", "mogę rozpocząć",
+                    "czy mam teraz", "czy powinenem"
+                ]
+                
+                normalized_input = (str(action_input) + " " + output.replace("Thought:", "")).lower()
+                is_question = any(p in normalized_input for p in question_patterns)
+                
+                # If it looks like a question, but NOT a Final Answer, intercept it.
+                if is_question and "Final Answer" not in output:
+                     self._log("⚠️ Heuristic: Agent is trying to ask a question via Tool/Thought. Intercepting.")
+                     interception_msg = "\nObservation: SYSTEM INTEVENTION: It looks like you want to ask the user a question (e.g., 'Czy mam...'). \nSTOP. Do not write this to a file or just think about it. \nYou MUST use the format: 'Final Answer: [your question]' to actually ask the user and get a response.\nThought:"
+                     prompt += interception_msg
+                     self.active_scratchpad += interception_msg
+                     continue
+
                 # Action Loop Detection
                 current_action = (action, action_input)
                 if action_history.count(current_action) >= 3: # Allow one retry
