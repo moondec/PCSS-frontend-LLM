@@ -230,7 +230,16 @@ Begin!"""
                 try:
                     tool_args = json.loads(action_input)
                 except json.JSONDecodeError:
-                    tool_args = action_input
+                    # Robust extraction: finding the outer-most JSON object if parsing failed
+                    # This handles cases like: {"key": "val"}?? or text ending with garbage
+                    json_obj_match = re.search(r"(\{.*\})", action_input, re.DOTALL)
+                    if json_obj_match:
+                        try:
+                            tool_args = json.loads(json_obj_match.group(1))
+                        except:
+                            tool_args = action_input
+                    else:
+                         tool_args = action_input
 
                 # Argument Mapping Fallback
                 if isinstance(tool_args, dict):
