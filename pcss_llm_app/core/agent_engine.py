@@ -296,11 +296,23 @@ Begin!"""
                 question_patterns = [
                     "pytanie do ciebie", "czy mam", "should i", "do you want", 
                     "czy chcesz", "mam przystąpić", "mogę rozpocząć",
-                    "czy mam teraz", "czy powinenem"
+                    "czy mam teraz", "czy powinenem", "czy mogę",
+                    "proszę o decyzję", "pytanie:", "decyzja:"
                 ]
                 
-                normalized_input = (str(action_input) + " " + output.replace("Thought:", "")).lower()
-                is_question = any(p in normalized_input for p in question_patterns)
+                # Combine Thought, Action Input, and potential File Content into one check string
+                check_text = (str(action_input) + " " + output.replace("Thought:", "")).lower()
+                
+                # Explicitly check content if writing a file
+                if action in ["write_file", "save_document", "write_docx"] and isinstance(tool_args, dict):
+                    content = tool_args.get("text", "") or tool_args.get("content", "")
+                    check_text += " " + str(content).lower()
+
+                is_question = any(p in check_text for p in question_patterns)
+                
+                # Special check for Question Headers in artifacts
+                if "<h2>pytanie" in check_text or "<h1>pytanie" in check_text or "### pytanie" in check_text:
+                    is_question = True
                 
                 # If it looks like a question, but NOT a Final Answer, intercept it.
                 if is_question and "Final Answer" not in output:
