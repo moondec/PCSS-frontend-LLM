@@ -339,6 +339,9 @@ class DocumentTools:
         ]
 
 
+class CreateDirectorySchema(BaseModel):
+    directory_path: str = Field(description="The name or path of the directory to create.")
+
 class FolderTools:
     def __init__(self, root_dir: str):
         self.root_dir = root_dir
@@ -366,7 +369,8 @@ class FolderTools:
             StructuredTool.from_function(
                 func=self.create_directory,
                 name="create_directory",
-                description="Creates a new directory (folder) within the workspace. Useful for organizing files."
+                description="Creates a new directory (folder) within the workspace. Useful for organizing files.",
+                args_schema=CreateDirectorySchema
             )
         ]
 

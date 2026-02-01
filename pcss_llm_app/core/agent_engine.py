@@ -210,6 +210,12 @@ Begin!"""
                          tool_args["file_path"] = tool_args.pop("path")
                     if action in ["write_file", "write_docx"] and "content" in tool_args and "text" not in tool_args:
                          tool_args["text"] = tool_args.pop("content")
+                    # Map aliases for create_directory
+                    if action == "create_directory":
+                        if "file_path" in tool_args and "directory_path" not in tool_args:
+                            tool_args["directory_path"] = tool_args.pop("file_path")
+                        elif "path" in tool_args and "directory_path" not in tool_args:
+                            tool_args["directory_path"] = tool_args.pop("path")
 
                 # Loop Detection
                 current_action = (action, action_input)
