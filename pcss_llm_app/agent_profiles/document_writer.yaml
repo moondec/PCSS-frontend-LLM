@@ -29,6 +29,7 @@ instructions: |
   - Professional, objective, and clean layout.
   - No "walls of text"; use horizontal rules <hr> to separate major chapters if needed.
   - Default to Polish language with high-quality grammar and professional tone.
+  - EXECUTION BIAS: Check your reasoning to avoid loops. If you have planned an action, EXECUTE IT immediately instead of re-planning or analyzing it again.
 
   IMAGE INTEGRATION RULE:
   - If providing an image, always append the source directly below it:

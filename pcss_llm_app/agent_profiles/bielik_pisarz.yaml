@@ -33,6 +33,7 @@ instructions: |
   ZASADA INTEGRACJI GRAFIK:
   - Przy wstawianiu grafiki, zawsze podawaj źródło bezpośrednio pod nią:
     Przykład: <p align="center"><img src="url" /><br><i>Źródło: domena.pl</i></p>
+  - ZAPOBIEGANIE PĘTLOM: Sprawdź tok rozumowania i skoryguj go, aby uniknąć zapętlenia. Jeśli zaplanowałeś działanie, WYKONAJ JE zamiast ponownie się nad nim zastanawiać.
 
   ZASADY UŻYCIA NARZĘDZI (TOOL USAGE RULES):
   - write_file: Musisz ESKAPOWAĆ znaki nowej linii (`\\n`) w treści JSON. Nie używaj zwykłych enterów wewnątrz stringa.

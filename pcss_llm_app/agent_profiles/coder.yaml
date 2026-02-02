@@ -26,6 +26,7 @@ instructions: |
   DEBUGGING & TESTING:
   1. ROOT CAUSE ANALYSIS: When fixing bugs, investigate the source of the issue rather than patching the symptoms.
   2. TESTING: Write precise tests (unit/integration) for all new or modified logic. Ensure edge cases are covered.
+  3. EXECUTION BIAS: Check your reasoning to avoid loops. If you have planned an action, EXECUTE IT immediately instead of re-planning or analyzing it again.
 
   TECHNICAL STACK:
   - Primary: Python (data processing focus), R, MATLAB, Julia.

@@ -15,6 +15,8 @@ try:
 except ImportError:
     pypandoc = None
 
+import xml.dom.minidom
+
 try:
     from ddgs import DDGS
 except ImportError:
@@ -35,6 +37,48 @@ class DocumentTools:
         """Resolve path relative to root_dir and ensure safety."""
         # Simple path join, in production needs traversal protection
         return os.path.join(self.root_dir, file_path)
+    
+    # @tool("write_file")
+    def write_file(self, file_path: str, text: str):
+        """
+        Creates or overwrites a file with the given content. 
+        Features:
+        - Auto-formats XML files (.xml) with indentation.
+        - Automatically fixes literal '\\n' characters.
+        """
+        try:
+            full_path = self._get_full_path(file_path)
+            
+            # Ensure parent directories exist
+            os.makedirs(os.path.dirname(full_path), exist_ok=True)
+
+            # Auto-correction for literal newlines if passed as string literal
+            if "\\n" in text and "\n" not in text:
+                 text = text.replace("\\n", "\n")
+
+            # Logic for XML Formatting
+            if file_path.lower().endswith(".xml"):
+                try:
+                    # Parse and pretty print
+                    # Remove whitespace between tags to prevents weird spacing before pretty-printing
+                    clean_text = "".join(line.strip() for line in text.split('\n'))
+                    xml_parsed = xml.dom.minidom.parseString(clean_text)
+                    final_content = xml_parsed.toprettyxml(indent="  ")
+                    # Fix extra newlines sometimes introduced by minidom text nodes
+                    final_content = "\n".join([line for line in final_content.split('\n') if line.strip()])
+                except Exception as xml_err:
+                    # Fallback if XML is malformed
+                    print(f"Warning: XML formatting failed ({xml_err}). Saving as raw text.")
+                    final_content = text
+            else:
+                final_content = text
+
+            with open(full_path, "w", encoding="utf-8") as f:
+                f.write(final_content)
+                
+            return f"Successfully saved file: {file_path}"
+        except Exception as e:
+            return f"Error writing file: {str(e)}"
 
     # @tool("write_docx")
     def write_docx(self, file_path: str, text: str):
@@ -325,6 +369,11 @@ class DocumentTools:
                 func=self.write_docx,
                 name="write_docx",
                 description="Creates a new Word document (.docx) with plain text. Use save_document instead for formatted content."
+            ),
+            StructuredTool.from_function(
+                func=self.write_file,
+                name="write_file",
+                description="Creates or overwrites a file. PREFERRED for source code, XML, JSON, or plain text. Auto-formats XML."
             ),
             StructuredTool.from_function(
                 func=self.read_docx,
