@@ -77,6 +77,7 @@ class LangChainAgentEngine:
 
 
 
+
         # print("DEBUG: Building map", flush=True)
         self.tool_map = {t.name: t for t in self.tools}
 
@@ -165,7 +166,7 @@ Begin!"""
             self._log("Thinking...")
             response = self.llm.invoke(prompt, stop=["Observation:"])
             output = response.content
-            print(f"--- Step {i} ---\nLLM Output:\n{output}\n----------------")
+            # print(f"--- Step {i} ---\nLLM Output:\n{output}\n----------------")
             self._log(f"Agent Thought:\n{output}")
             
             # Smart Loop Detection (Thoughts)

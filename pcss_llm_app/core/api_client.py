@@ -26,19 +26,16 @@ class PcssApiClient:
     def list_models(self):
         if not self.is_configured():
             return []
-        try:
-            models = self.client.models.list()
-            # Filter out non-chat models (whisper, embedding, etc.)
-            chat_models = []
-            for m in models.data:
-                mid = m.id.lower()
-                if "whisper" in mid or "embedding" in mid or "dall" in mid or "tts" in mid:
-                    continue
-                chat_models.append(m.id)
-            return chat_models
-        except Exception as e:
-            print(f"Error fetching models: {e}")
-            return []
+        # No try/except here - let exceptions propagate to UI
+        models = self.client.models.list()
+        # Filter out non-chat models (whisper, embedding, etc.)
+        chat_models = []
+        for m in models.data:
+            mid = m.id.lower()
+            if "whisper" in mid or "embedding" in mid or "dall" in mid or "tts" in mid:
+                continue
+            chat_models.append(m.id)
+        return chat_models
 
     def chat_completion(self, model, messages, **kwargs):
         """

@@ -43,7 +43,7 @@ class ConfigManager:
         try:
             return keyring.get_password(SERVICE_NAME, USERNAME)
         except Exception as e:
-            print(f"Keyring error: {e}")
+            # print(f"Keyring error: {e}")
             return None
 
     def set_api_key(self, api_key):
@@ -54,7 +54,7 @@ class ConfigManager:
             keyring.set_password(SERVICE_NAME, USERNAME, api_key)
             return True
         except Exception as e:
-            print(f"Error saving to keyring: {e}")
+            # print(f"Error saving to keyring: {e}")
             return False
 
     def get(self, key, default=None):

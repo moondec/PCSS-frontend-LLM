@@ -57,9 +57,9 @@ class SettingsDialog(QDialog):
         if self.available_models:
             self.model_combo.addItems(self.available_models)
         else:
-            self.model_combo.addItems(["gpt-4o", "bielik_11b"]) # Default fallback
+            self.model_combo.addItems(["bielik_11b", "DeepSeek-V3.1-vLLM"]) # Default fallback
             
-        current_model = self.config.get("model", "gpt-4o")
+        current_model = self.config.get("model", "bielik_11b")
         self.model_combo.setCurrentText(current_model)
         settings_dlg_layout.addRow("Default Model:", self.model_combo)
 
@@ -296,6 +296,29 @@ class MainWindow(QMainWindow):
         sidebar_layout.addWidget(QLabel("History"))
         sidebar_layout.addWidget(self.history_list)
         
+        # --- Model Selection (Global) ---
+        model_group = QWidget()
+        model_group_layout = QVBoxLayout(model_group)
+        model_group_layout.setContentsMargins(0, 5, 0, 5)
+        
+        model_header = QHBoxLayout()
+        model_header.addWidget(QLabel("Active Model:"))
+        
+        self.refresh_btn = QPushButton("Refresh")
+        self.refresh_btn.setToolTip("Refresh list of available models")
+        self.refresh_btn.clicked.connect(self._refresh_models)
+        # Removed fixed width to let it fit the text
+        model_header.addWidget(self.refresh_btn)
+        
+        model_group_layout.addLayout(model_header)
+        
+        self.model_combo = QComboBox()
+        self.model_combo.currentTextChanged.connect(self.on_model_changed)
+        model_group_layout.addWidget(self.model_combo)
+        
+        sidebar_layout.addWidget(model_group)
+        # --------------------------------
+        
         new_chat_btn = QPushButton("New Chat")
         new_chat_btn.clicked.connect(self.start_new_chat)
         sidebar_layout.addWidget(new_chat_btn)
@@ -356,10 +379,7 @@ class MainWindow(QMainWindow):
         
         # Controls
         controls_layout = QHBoxLayout()
-        self.model_combo = QComboBox()
-        self.model_combo.currentTextChanged.connect(self.on_model_changed)
-        controls_layout.addWidget(QLabel("Model:"))
-        controls_layout.addWidget(self.model_combo)
+        # Model controls moved to Sidebar
         
         save_btn = QPushButton("Save to File")
         save_btn.clicked.connect(self.save_to_file)
@@ -498,22 +518,103 @@ class MainWindow(QMainWindow):
         agent_layout.addLayout(input_layout)
 
     def _refresh_models(self):
+        """
+        Refresh available models from API.
+        Fully dynamic - adapts to any changes in API model offerings.
+        """
         if self.api.is_configured():
             self.model_combo.blockSignals(True) # Prevent triggering change reset during update
-            models = self.api.list_models()
-            self.model_combo.clear()
-            if not models:
-                self.model_combo.addItem("gpt-4o") 
-                self.model_combo.addItem("bielik_11b")
-            else:
-                self.model_combo.addItems(models)
-            self.model_combo.blockSignals(False)
+            
+            try:
+                # 1. Fetch available models from API (single source of truth)
+                fetched_models = self.api.list_models()
+                
+                # 2. Optional: Filter out known problematic models
+                KNOWN_BAD_MODELS = []  # Empty for now - add model IDs here if needed
+                
+                final_models = [m for m in fetched_models if m not in KNOWN_BAD_MODELS]
+                
+                # Check if we got any models
+                if not final_models:
+                    raise ValueError("No models available from API")
+                
+                # 3. Update UI with fetched models
+                self.model_combo.clear()
+                self.model_combo.addItems(final_models)
+                
+                # 4. Smart model selection with fallback
+                saved_model = self.config.get("model")
+                selected_model = None
+                
+                if saved_model and saved_model in final_models:
+                    # Saved model is available - restore it
+                    index = self.model_combo.findText(saved_model)
+                    if index >= 0:
+                        self.model_combo.setCurrentIndex(index)
+                        selected_model = saved_model
+                        self.append_log(f"✓ Restored model: {saved_model}")
+                else:
+                    # Saved model not available - use smart fallback
+                    if saved_model:
+                        self.append_log(f"⚠ Saved model '{saved_model}' no longer available")
+                    
+                    # Preferred fallback order
+                    PREFERRED_MODELS = ["bielik_11b", "DeepSeek-V3.1-vLLM"]
+                    
+                    for preferred in PREFERRED_MODELS:
+                        if preferred in final_models:
+                            index = self.model_combo.findText(preferred)
+                            if index >= 0:
+                                self.model_combo.setCurrentIndex(index)
+                                selected_model = preferred
+                                self.append_log(f"→ Selected fallback model: {preferred}")
+                                break
+                    
+                    # If no preferred model found, use first available
+                    if not selected_model and len(final_models) > 0:
+                        self.model_combo.setCurrentIndex(0)
+                        selected_model = final_models[0]
+                        self.append_log(f"→ Selected first available model: {selected_model}")
+                    
+                    # Save the new selection
+                    if selected_model:
+                        self.config.set("model", selected_model)
+                
+                # 5. Success feedback
+                current_model = self.model_combo.currentText()
+                self.statusBar().showMessage(
+                    f"Models refreshed ({len(final_models)} available) - Using: {current_model}", 
+                    3000
+                )
+                
+            except Exception as e:
+                # Handle API errors gracefully
+                self.append_log(f"❌ Model refresh failed: {str(e)}")
+                
+                # Emergency fallback - populate with common models
+                self.model_combo.clear()
+                emergency_models = ["bielik_11b", "DeepSeek-V3.1-vLLM"]
+                self.model_combo.addItems(emergency_models)
+                self.model_combo.setCurrentIndex(0)
+                
+                # Show error to user
+                err_msg = f"Model refresh failed: {str(e)}"
+                self.statusBar().showMessage(err_msg, 10000)
+                
+            finally:
+                self.model_combo.blockSignals(False)
 
     def on_model_changed(self, text):
         if not text:
             return
             
-        print(f"DEBUG: Model changed to {text}")        
+        # Save selected model to config
+        self.config.set("model", text)
+        self.append_log(f"Model changed to: {text}")
+        
+        # Update status bar with current model
+        self.statusBar().showMessage(f"Using model: {text}", 5000)
+        
         # Reset Chat
         self.start_new_chat()
         
@@ -531,8 +632,13 @@ class MainWindow(QMainWindow):
         
         dlg = SettingsDialog(self.config, self, available_models=current_models)
         if dlg.exec():
+            # Re-initialize API client
             self.api = PcssApiClient(self.config)
+            # Refresh models (this will also restore the saved selection)
             self._refresh_models()
+            # Log the current selected model for user confirmation
+            current_model = self.model_combo.currentText()
+            self.append_log(f"Settings saved. Current model: {current_model}")
 
     def apply_theme(self, theme_name: str):
         """Apply a theme to the application."""
@@ -683,7 +789,7 @@ class MainWindow(QMainWindow):
             return
 
         model = self.model_combo.currentText()
-        print(f"DEBUG: Sending message with model: {model}")
+        # print(f"DEBUG: Sending message with model: {model}")
         if not self.current_conversation_id:
             title = text[:30] + "..."
             self.current_conversation_id = self.db.create_conversation(title, model)
@@ -771,7 +877,8 @@ class MainWindow(QMainWindow):
                             }
                             self.profile_combo.addItem(name)
                 except Exception as e:
-                    print(f"Error loading profile {yaml_file}: {e}")
+                    # print(f"Error loading profile {yaml_file}: {e}")
+                    pass
         
         self.profile_combo.blockSignals(False)
         

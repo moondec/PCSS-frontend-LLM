@@ -68,7 +68,7 @@ class DocumentTools:
                     final_content = "\n".join([line for line in final_content.split('\n') if line.strip()])
                 except Exception as xml_err:
                     # Fallback if XML is malformed
-                    print(f"Warning: XML formatting failed ({xml_err}). Saving as raw text.")
+                    # print(f"Warning: XML formatting failed ({xml_err}). Saving as raw text.")
                     final_content = text
             else:
                 final_content = text
@@ -203,7 +203,7 @@ class DocumentTools:
                     
                 except Exception as e:
                     # If download fails, keep original and add alt text
-                    print(f"Warning: Could not download image {src}: {e}")
+                    # print(f"Warning: Could not download image {src}: {e}")
                     return img_tag
             
             return re.sub(img_pattern, replace_img, html, flags=re.IGNORECASE)
@@ -273,7 +273,8 @@ class DocumentTools:
                     except ImportError:
                         pass  # weasyprint not installed
                     except Exception as e:
-                        print(f"weasyprint failed: {e}")
+                        # print(f"weasyprint failed: {e}")
+                        pass
                     
                     # Method 2: wkhtmltopdf (fallback)
                     try:
