@@ -28,7 +28,7 @@ class LangChainAgentEngine:
             api_key=self.api_key,
             base_url="https://llm.hpc.pcss.pl/v1",
             model=self.model_name,
-            temperature=0,
+            temperature=0.2,  # Small randomness to prevent deterministic loops
             max_tokens=2048,  # Limit response length for faster generation
             request_timeout=120  # 2 minute timeout
         )
@@ -212,7 +212,17 @@ Begin!"""
             pattern = r"Action:\s*(.+?)\nAction Input:\s*(.+)"
             match = re.search(pattern, output, re.DOTALL)
             
-            # Fallback for "function call" style
+            # Fallback 1: Single-line format "Action: tool_name {args}"
+            if not match:
+                single_line_pattern = r"Action:\s*([a-z_]+)\s*(\{.*?\})"
+                single_match = re.search(single_line_pattern, output, re.DOTALL)
+                if single_match:
+                    action = single_match.group(1).strip()
+                    action_input = single_match.group(2).strip()
+                    match = True  # Signal that we found action
+                    self._log(f"⚙️ Using single-line format parser for: {action}")
+            
+            # Fallback 2: "function call" style
             if not match:
                  json_pattern = r'function call\s*({.*?})'
                  json_match = re.search(json_pattern, output, re.DOTALL)
